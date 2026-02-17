@@ -55,7 +55,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px;
+      padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
       position: relative;
       overflow: hidden;
       color: var(--terminal-green);
@@ -328,7 +328,13 @@
         max-width: 100%;
       }
       h1 {
-        font-size: 24px;
+        font-size: 22px;
+        white-space: normal;
+        animation: blink 0.75s step-end infinite;
+        width: auto;
+      }
+      .ascii-border::before, .ascii-border::after {
+        content: none;
       }
       .terminal-body {
         padding: 24px 16px;

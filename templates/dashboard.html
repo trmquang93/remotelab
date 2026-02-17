@@ -40,7 +40,7 @@
       font-family: 'JetBrains Mono', monospace;
       background: var(--bg-black);
       min-height: 100vh;
-      padding: 20px;
+      padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
       position: relative;
       color: var(--terminal-green);
     }
@@ -605,6 +605,40 @@
       }
       .form-row {
         grid-template-columns: 1fr;
+      }
+      .btn {
+        padding: 14px 16px;
+        min-height: 44px;
+      }
+      .logout-btn {
+        padding: 10px 16px;
+        min-height: 44px;
+      }
+      .btn-browse {
+        min-height: 44px;
+      }
+      .autocomplete-item,
+      .browse-item {
+        padding: 14px 16px;
+        min-height: 44px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .terminal-header {
+        flex-wrap: wrap;
+        gap: 8px;
+        font-size: 12px;
+      }
+      .header-actions {
+        width: 100%;
+        justify-content: space-between;
+      }
+      .header-body {
+        padding: 16px;
+      }
+      h1 {
+        font-size: 22px;
       }
     }
   </style>

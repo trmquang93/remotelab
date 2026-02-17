@@ -33,6 +33,7 @@
       background: var(--bg-dark);
       border-bottom: 2px solid var(--terminal-green);
       padding: 12px 20px;
+      padding-top: max(12px, env(safe-area-inset-top));
       display: flex;
       align-items: center;
       gap: 16px;
@@ -347,6 +348,52 @@
       }
     }
 
+    @media (max-width: 768px) {
+      /* 3a. Auto-collapse diff panel on mobile - full-screen toggle */
+      .main-container {
+        display: flex;
+        flex-direction: column;
+      }
+      .main-container .diff-panel {
+        display: none;
+        width: 100%;
+        border-left: none;
+        border-top: 2px solid var(--terminal-green);
+      }
+      .main-container .divider { display: none; }
+      .main-container .terminal-panel {
+        width: 100% !important;
+        flex: 1;
+      }
+      .main-container.collapsed .terminal-panel {
+        width: 100% !important;
+        flex: 1;
+      }
+
+      /* When diff is open on mobile: hide terminal, show diff full-screen */
+      .main-container.mobile-diff-open .diff-panel {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+      .main-container.mobile-diff-open .terminal-panel { display: none; }
+
+      /* 3b. Fix toolbar overflow */
+      .session-folder { display: none; }
+      .session-name {
+        max-width: 150px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .toolbar-btn, .collapse-btn { min-height: 44px; min-width: 44px; }
+
+      /* 3d. Diff panel mobile improvements */
+      .line-number { min-width: 35px; font-size: 11px; }
+      .line-content { font-size: 12px; }
+      .file-header { min-height: 44px; display: flex; align-items: center; }
+    }
+
     /* Floating scroll-to-bottom button - START */
     .scroll-bottom-btn {
       position: absolute;
@@ -434,6 +481,7 @@
         background: var(--bg-dark);
         border-top: 2px solid var(--terminal-green);
         padding: 8px;
+        padding-bottom: max(8px, env(safe-area-inset-bottom));
         gap: 8px;
         z-index: 1000;
         overflow-x: auto;
@@ -554,7 +602,10 @@
 
     // Load saved collapse state
     const isCollapsed = localStorage.getItem(`diffPanelCollapsed_${SESSION_ID}`) === 'true';
-    if (isCollapsed) {
+    if (window.innerWidth <= 768) {
+      // On mobile, diff is hidden by default; button shows "Diff" to reveal it
+      document.getElementById('collapse-btn').textContent = 'Diff';
+    } else if (isCollapsed) {
       document.getElementById('main-container').classList.add('collapsed');
       document.getElementById('collapse-btn').textContent = 'Expand';
     }
@@ -739,6 +790,21 @@
     document.getElementById('collapse-btn').addEventListener('click', () => {
       const container = document.getElementById('main-container');
       const btn = document.getElementById('collapse-btn');
+
+      // Mobile: toggle full-screen diff instead of side-by-side collapse
+      if (window.innerWidth <= 768) {
+        const isDiffOpen = container.classList.contains('mobile-diff-open');
+        if (isDiffOpen) {
+          container.classList.remove('mobile-diff-open');
+          btn.textContent = 'Diff';
+        } else {
+          container.classList.add('mobile-diff-open');
+          btn.textContent = 'Terminal';
+        }
+        return;
+      }
+
+      // Desktop: normal collapse/expand behavior
       const isCurrentlyCollapsed = container.classList.contains('collapsed');
 
       if (isCurrentlyCollapsed) {
