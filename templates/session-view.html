@@ -523,6 +523,7 @@
         <button data-key="right" title="Right Arrow">→</button>
         <button data-key="tab" title="Tab">⇥</button>
         <button data-key="shift-tab" title="Shift+Tab">⇤</button>
+        <button data-key="shift-enter" title="Shift+Enter">⏎</button>
       </div>
     </div>
 
@@ -795,7 +796,8 @@
         'right': '\x1b[C',
         'left': '\x1b[D',
         'tab': '\t',
-        'shift-tab': '\x1b[Z'
+        'shift-tab': '\x1b[Z',
+        'shift-enter': '\n'
       };
 
       toolbar.addEventListener('click', (e) => {
@@ -1102,7 +1104,7 @@
 
         let sequence = null;
         switch (e.key) {
-          case 'Enter':      sequence = '\\r'; break;
+          case 'Enter':      sequence = e.shiftKey ? '\\n' : '\\r'; break;
           case 'Backspace':  sequence = '\\x7f'; break;
           case 'Escape':     sequence = '\\x1b'; break;
           case 'Tab':        sequence = e.shiftKey ? '\\x1b[Z' : '\\t'; break;
@@ -1188,6 +1190,32 @@
         window.visualViewport.addEventListener('resize', scheduleLayout);
         window.visualViewport.addEventListener('scroll', scheduleLayout);
       }
+    })();
+
+    // Desktop Shift+Enter support
+    (function initDesktopShiftEnter() {
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile) return;
+
+      const iframe = document.getElementById('terminal-iframe');
+      if (!iframe) return;
+
+      function attachHandler() {
+        try {
+          const term = iframe.contentWindow && iframe.contentWindow.term;
+          if (!term) { setTimeout(attachHandler, 500); return; }
+          term.attachCustomKeyEventHandler((e) => {
+            if (e.type === 'keydown' && e.key === 'Enter' && e.shiftKey) {
+              e.preventDefault();
+              term.input('\n');
+              return false;
+            }
+            return true;
+          });
+        } catch (err) { setTimeout(attachHandler, 500); }
+      }
+
+      iframe.addEventListener('load', () => setTimeout(attachHandler, 1000));
     })();
 
     // Initial load
