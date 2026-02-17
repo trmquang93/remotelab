@@ -1,5 +1,10 @@
 # claude-code-remote
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Platform: macOS](https://img.shields.io/badge/Platform-macOS-lightgrey?logo=apple)](https://github.com/trmquang93/claude-code-remote)
+[![Node.js 18+](https://img.shields.io/badge/Node.js-18%2B-green?logo=node.js&logoColor=white)](https://nodejs.org)
+[![GitHub stars](https://img.shields.io/github/stars/trmquang93/claude-code-remote?style=social)](https://github.com/trmquang93/claude-code-remote/stargazers)
+
 Access [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) from any browser on any device via HTTPS — phone, tablet, or any machine that can open a web page.
 
 ## Features
@@ -8,6 +13,13 @@ Access [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) from an
 - **Session persistence** — dtach keeps Claude running through browser disconnects; reconnecting reattaches to the same session
 - **Secure by default** — scrypt-hashed passwords, HttpOnly session cookies, localhost-only service binding, HTTPS via Cloudflare Tunnel
 - **Mobile-friendly** — works in iOS Safari, Android Chrome, and any modern browser; terminal auto-resizes
+
+## Demo
+
+<!-- Add a screenshot or GIF here showing the dashboard and terminal in action -->
+<!-- Example: ![Dashboard and terminal on iPhone](docs/demo.gif) -->
+
+> Open your HTTPS URL on any device — log in, create a session pointing at a project folder, and get a full Claude Code terminal in the browser.
 
 ## Architecture
 
@@ -44,7 +56,7 @@ Three services:
 ## Quick Start
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/claude-code-remote.git
+git clone https://github.com/trmquang93/claude-code-remote.git
 cd claude-code-remote
 ./setup.sh
 ```
