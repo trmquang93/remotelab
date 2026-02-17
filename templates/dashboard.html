@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Code // Session Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --terminal-green: #00ff41;
+      --terminal-cyan: #00ffff;
+      --terminal-amber: #ffb000;
+      --terminal-red: #ff0000;
+      --bg-black: #0a0a0a;
+      --bg-dark: #121212;
+      --bg-darker: #0d0d0d;
+      --glow: 0 0 10px currentColor, 0 0 20px currentColor;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    @keyframes scanline {
+      0% { transform: translateY(-100%); }
+      100% { transform: translateY(100vh); }
+    }
+
+    @keyframes flicker {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.97; }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--bg-black);
+      min-height: 100vh;
+      padding: 20px;
+      position: relative;
+      color: var(--terminal-green);
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 255, 65, 0.03) 0px,
+        rgba(0, 255, 65, 0.03) 1px,
+        transparent 1px,
+        transparent 2px
+      );
+      pointer-events: none;
+      z-index: 1;
+      animation: flicker 0.15s infinite;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: linear-gradient(to bottom, rgba(0, 255, 65, 0.8), transparent);
+      box-shadow: 0 0 20px rgba(0, 255, 65, 0.5);
+      animation: scanline 8s linear infinite;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 10;
+    }
+
+    .header {
+      background: var(--bg-dark);
+      border: 2px solid var(--terminal-green);
+      box-shadow: 0 0 20px rgba(0, 255, 65, 0.3), inset 0 0 60px rgba(0, 255, 65, 0.05);
+      padding: 0;
+      margin-bottom: 24px;
+      animation: flicker 0.1s infinite;
+    }
+
+    .terminal-header {
+      background: var(--terminal-green);
+      color: var(--bg-black);
+      padding: 12px 20px;
+      font-weight: 700;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .terminal-header::before {
+      content: '▊▊▊';
+      font-size: 10px;
+      margin-right: 12px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .logout-btn {
+      padding: 6px 12px;
+      background: var(--bg-black);
+      color: var(--terminal-green);
+      border: 1px solid var(--terminal-green);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      cursor: pointer;
+      text-decoration: none;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: all 0.2s;
+    }
+
+    .logout-btn:hover {
+      background: var(--terminal-red);
+      border-color: var(--terminal-red);
+      color: var(--bg-black);
+    }
+
+    .header-body {
+      padding: 24px;
+    }
+
+    h1 {
+      color: var(--terminal-cyan);
+      font-size: 28px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      text-shadow: var(--glow);
+    }
+
+    .subtitle {
+      color: var(--terminal-amber);
+      font-size: 13px;
+      opacity: 0.8;
+    }
+
+    .sessions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+      gap: 20px;
+      margin-bottom: 32px;
+    }
+
+    .session-card {
+      background: var(--bg-dark);
+      border: 2px solid var(--terminal-green);
+      padding: 20px;
+      position: relative;
+      transition: all 0.2s;
+    }
+
+    .session-card:hover {
+      box-shadow: 0 0 20px rgba(0, 255, 65, 0.4);
+      transform: translateY(-2px);
+    }
+
+    .session-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .session-name {
+      color: var(--terminal-cyan);
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .status-active {
+      background: var(--terminal-green);
+      animation: pulse 2s infinite;
+      box-shadow: 0 0 8px var(--terminal-green);
+    }
+
+    .status-inactive {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .session-folder {
+      color: var(--terminal-amber);
+      font-size: 12px;
+      margin-bottom: 12px;
+      word-break: break-all;
+      opacity: 0.8;
+    }
+
+    .session-meta {
+      font-size: 11px;
+      color: rgba(0, 255, 65, 0.5);
+      margin-bottom: 16px;
+    }
+
+    .session-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      padding: 10px 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      border: 2px solid;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      display: inline-block;
+      text-align: center;
+    }
+
+    .btn-primary {
+      background: var(--terminal-green);
+      border-color: var(--terminal-green);
+      color: var(--bg-black);
+    }
+
+    .btn-primary:hover {
+      background: var(--terminal-cyan);
+      border-color: var(--terminal-cyan);
+      box-shadow: 0 0 15px rgba(0, 255, 255, 0.6);
+    }
+
+    .btn-danger {
+      background: transparent;
+      border-color: var(--terminal-red);
+      color: var(--terminal-red);
+    }
+
+    .btn-danger:hover {
+      background: var(--terminal-red);
+      color: var(--bg-black);
+      box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
+    }
+
+    .new-session {
+      background: var(--bg-dark);
+      border: 2px solid var(--terminal-cyan);
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+    }
+
+    .new-session h2 {
+      color: var(--terminal-cyan);
+      font-size: 18px;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      color: var(--terminal-green);
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    label::before {
+      content: '> ';
+      color: var(--terminal-cyan);
+    }
+
+    input {
+      width: 100%;
+      padding: 12px 16px;
+      background: var(--bg-black);
+      border: 2px solid var(--terminal-green);
+      color: var(--terminal-cyan);
+      font-size: 14px;
+      font-family: 'JetBrains Mono', monospace;
+      transition: all 0.2s;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--terminal-cyan);
+      box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+    }
+
+    .autocomplete-wrapper {
+      position: relative;
+    }
+
+    .autocomplete-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--bg-darker);
+      border: 2px solid var(--terminal-cyan);
+      border-top: none;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 1000;
+      display: none;
+    }
+
+    .autocomplete-dropdown.show {
+      display: block;
+    }
+
+    .autocomplete-item {
+      padding: 10px 16px;
+      color: var(--terminal-green);
+      font-size: 12px;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(0, 255, 65, 0.1);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.1s;
+    }
+
+    .autocomplete-item:hover,
+    .autocomplete-item.highlighted {
+      background: rgba(0, 255, 65, 0.15);
+      padding-left: 20px;
+    }
+
+    .autocomplete-item::before {
+      content: '📁';
+      font-size: 14px;
+    }
+
+    .autocomplete-item::after {
+      content: '›';
+      margin-left: auto;
+      color: var(--terminal-cyan);
+      font-size: 16px;
+      opacity: 0.5;
+    }
+
+    .folder-input-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+
+    .folder-input-row > div {
+      flex: 1;
+    }
+
+    .btn-browse {
+      padding: 12px 16px;
+      background: transparent;
+      border: 2px solid var(--terminal-green);
+      color: var(--terminal-green);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      white-space: nowrap;
+      height: fit-content;
+    }
+
+    .btn-browse:hover {
+      background: var(--terminal-green);
+      color: var(--bg-black);
+      box-shadow: 0 0 15px rgba(0, 255, 65, 0.6);
+    }
+
+    .browse-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--bg-darker);
+      border: 2px solid var(--terminal-cyan);
+      border-top: none;
+      max-height: 300px;
+      overflow-y: auto;
+      z-index: 1001;
+      display: none;
+    }
+
+    .browse-dropdown.show {
+      display: block;
+    }
+
+    .browse-dropdown::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .browse-dropdown::-webkit-scrollbar-track {
+      background: var(--bg-black);
+    }
+
+    .browse-dropdown::-webkit-scrollbar-thumb {
+      background: var(--terminal-green);
+      border-radius: 4px;
+    }
+
+    .browse-dropdown::-webkit-scrollbar-thumb:hover {
+      background: var(--terminal-cyan);
+    }
+
+    .browse-header {
+      background: var(--bg-black);
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(0, 255, 65, 0.2);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .browse-path {
+      flex: 1;
+      color: var(--terminal-cyan);
+      font-size: 11px;
+      word-break: break-all;
+      opacity: 0.9;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .breadcrumb-segment {
+      color: var(--terminal-cyan);
+      cursor: pointer;
+      transition: all 0.2s;
+      padding: 2px 4px;
+      border-radius: 2px;
+    }
+
+    .breadcrumb-segment:hover {
+      color: var(--terminal-green);
+      background: rgba(0, 255, 65, 0.1);
+      text-decoration: underline;
+    }
+
+    .breadcrumb-separator {
+      color: rgba(0, 255, 65, 0.5);
+      user-select: none;
+    }
+
+    .browse-btn {
+      padding: 4px 8px;
+      background: transparent;
+      border: 1px solid var(--terminal-green);
+      color: var(--terminal-green);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .browse-btn:hover:not(:disabled) {
+      background: var(--terminal-green);
+      color: var(--bg-black);
+    }
+
+    .browse-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .browse-btn.active {
+      background: var(--terminal-green);
+      color: var(--bg-black);
+      box-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+    }
+
+    .browse-btn:disabled:hover {
+      background: transparent;
+      color: var(--terminal-green);
+    }
+
+    .browse-item {
+      padding: 10px 16px;
+      color: var(--terminal-green);
+      font-size: 12px;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(0, 255, 65, 0.1);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.1s;
+    }
+
+    .browse-item:hover {
+      background: rgba(0, 255, 65, 0.15);
+      padding-left: 20px;
+    }
+
+    .browse-item::before {
+      content: '📁';
+      font-size: 14px;
+    }
+
+    .browse-item::after {
+      content: '›';
+      margin-left: auto;
+      color: var(--terminal-cyan);
+      font-size: 16px;
+      opacity: 0.5;
+    }
+
+    .browse-empty {
+      padding: 40px 20px;
+      text-align: center;
+      color: rgba(0, 255, 65, 0.5);
+      font-size: 12px;
+    }
+
+    .browse-loading {
+      padding: 40px 20px;
+      text-align: center;
+      color: var(--terminal-cyan);
+      font-size: 12px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      border: 2px dashed var(--terminal-green);
+      background: var(--bg-dark);
+      margin-bottom: 32px;
+    }
+
+    .empty-state-icon {
+      font-size: 48px;
+      color: var(--terminal-green);
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    .empty-state-text {
+      color: var(--terminal-amber);
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+
+    .empty-state-hint {
+      color: rgba(0, 255, 65, 0.5);
+      font-size: 12px;
+    }
+
+    .footer {
+      text-align: center;
+      padding: 16px;
+      border-top: 1px solid rgba(0, 255, 65, 0.2);
+      font-size: 11px;
+      color: rgba(0, 255, 65, 0.5);
+    }
+
+    @media (max-width: 768px) {
+      .sessions-grid {
+        grid-template-columns: 1fr;
+      }
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="terminal-header">
+        <span>Claude Code // Session Manager</span>
+        <div class="header-actions">
+          <span id="session-count" style="opacity: 0.7; font-size: 12px;">0 sessions</span>
+          <a href="/logout" class="logout-btn">Logout</a>
+        </div>
+      </div>
+      <div class="header-body">
+        <h1>CLAUDE_SESSIONS</h1>
+        <div class="subtitle">Manage multiple concurrent Claude Code sessions</div>
+      </div>
+    </div>
+
+    <div id="sessions-container"></div>
+
+    <div class="new-session">
+      <h2>▶ Create New Session</h2>
+      <form id="new-session-form">
+        <div class="form-row">
+          <div>
+            <label for="session-name">Session Name</label>
+            <input
+              type="text"
+              id="session-name"
+              name="name"
+              required
+              placeholder="my-project"
+              autocomplete="off">
+          </div>
+          <div class="autocomplete-wrapper">
+            <label for="session-folder">Project Folder</label>
+            <div class="folder-input-row">
+              <div>
+                <input
+                  type="text"
+                  id="session-folder"
+                  name="folder"
+                  required
+                  placeholder="/path/to/project"
+                  autocomplete="off">
+              </div>
+              <button type="button" id="browse-btn" class="btn-browse">DIR</button>
+            </div>
+            <div id="autocomplete-dropdown" class="autocomplete-dropdown"></div>
+            <div id="browse-dropdown" class="browse-dropdown"></div>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;">
+          ▶ Create & Open Session
+        </button>
+      </form>
+    </div>
+
+    <div class="footer">
+      SECURE CONNECTION ESTABLISHED // MULTI-SESSION MODE ENABLED
+    </div>
+  </div>
+
+  <script>
+    let sessions = [];
+
+    async function loadSessions() {
+      try {
+        const res = await fetch('/api/sessions');
+        const data = await res.json();
+        sessions = data.sessions;
+        renderSessions();
+        updateSessionCount();
+      } catch (err) {
+        console.error('Failed to load sessions:', err);
+      }
+    }
+
+    function renderSessions() {
+      const container = document.getElementById('sessions-container');
+
+      if (sessions.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">⚠</div>
+            <div class="empty-state-text">No active sessions</div>
+            <div class="empty-state-hint">Create your first Claude Code session below</div>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = '<div class="sessions-grid">' + sessions.map(session => `
+        <div class="session-card">
+          <div class="session-header">
+            <div class="session-name">
+              <span class="status-indicator ${session.active ? 'status-active' : 'status-inactive'}"></span>
+              ${escapeHtml(session.name)}
+            </div>
+          </div>
+          <div class="session-folder">${escapeHtml(session.folder)}</div>
+          <div class="session-meta">
+            ID: claude-${session.id} // Created: ${new Date(session.created).toLocaleString()}
+          </div>
+          <div class="session-actions">
+            <a href="/session/${session.id}"
+               target="_blank"
+               class="btn btn-primary"
+               style="flex: 1;">
+              ▶ Open
+            </a>
+            <button onclick="deleteSession('${session.id}')" class="btn btn-danger">
+              ✕ Delete
+            </button>
+          </div>
+        </div>
+      `).join('') + '</div>';
+    }
+
+    function updateSessionCount() {
+      const count = sessions.length;
+      document.getElementById('session-count').textContent =
+        `${count} session${count !== 1 ? 's' : ''}`;
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    async function deleteSession(id) {
+      if (!confirm('Delete this session? The session will be killed.')) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          await loadSessions();
+        } else {
+          alert('Failed to delete session');
+        }
+      } catch (err) {
+        console.error('Delete failed:', err);
+        alert('Failed to delete session');
+      }
+    }
+
+    // Autocomplete functionality
+    let autocompleteTimeout;
+    const folderInput = document.getElementById('session-folder');
+    const autocompleteDropdown = document.getElementById('autocomplete-dropdown');
+
+    folderInput.addEventListener('input', (e) => {
+      clearTimeout(autocompleteTimeout);
+      const query = e.target.value;
+
+      if (query.length < 2) {
+        autocompleteDropdown.classList.remove('show');
+        return;
+      }
+
+      autocompleteTimeout = setTimeout(async () => {
+        try {
+          const res = await fetch(`/api/autocomplete?q=${encodeURIComponent(query)}`);
+          const data = await res.json();
+
+          if (data.suggestions.length === 0) {
+            autocompleteDropdown.classList.remove('show');
+            return;
+          }
+
+          autocompleteDropdown.innerHTML = data.suggestions
+            .map(path => `<div class="autocomplete-item" data-path="${escapeHtml(path)}">${escapeHtml(path)}</div>`)
+            .join('');
+          autocompleteDropdown.classList.add('show');
+        } catch (err) {
+          console.error('Autocomplete failed:', err);
+        }
+      }, 300);
+    });
+
+    autocompleteDropdown.addEventListener('click', (e) => {
+      if (e.target.classList.contains('autocomplete-item')) {
+        const path = e.target.dataset.path;
+        // Update input with trailing slash and re-trigger autocomplete for subdirectories
+        folderInput.value = path + '/';
+        autocompleteDropdown.classList.remove('show');
+
+        // Trigger new autocomplete for subdirectories
+        clearTimeout(autocompleteTimeout);
+        autocompleteTimeout = setTimeout(async () => {
+          try {
+            const res = await fetch(`/api/autocomplete?q=${encodeURIComponent(path + '/')}`);
+            const data = await res.json();
+            if (data.suggestions.length === 0) {
+              autocompleteDropdown.classList.remove('show');
+              return;
+            }
+            autocompleteDropdown.innerHTML = data.suggestions
+              .map(p => `<div class="autocomplete-item" data-path="${escapeHtml(p)}">${escapeHtml(p)}</div>`)
+              .join('');
+            autocompleteDropdown.classList.add('show');
+          } catch (err) {
+            console.error('Autocomplete failed:', err);
+          }
+        }, 50);
+      }
+    });
+
+    // Keyboard navigation for autocomplete
+    let highlightedIndex = -1;
+
+    folderInput.addEventListener('keydown', (e) => {
+      const items = autocompleteDropdown.querySelectorAll('.autocomplete-item');
+      if (items.length === 0) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        highlightedIndex = Math.min(highlightedIndex + 1, items.length - 1);
+        updateHighlight(items);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        highlightedIndex = Math.max(highlightedIndex - 1, -1);
+        updateHighlight(items);
+      } else if (e.key === 'Enter') {
+        if (highlightedIndex >= 0 && highlightedIndex < items.length) {
+          e.preventDefault();
+          const path = items[highlightedIndex].dataset.path;
+          // Update input with trailing slash and re-trigger autocomplete for subdirectories
+          folderInput.value = path + '/';
+          autocompleteDropdown.classList.remove('show');
+          highlightedIndex = -1;
+
+          // Trigger new autocomplete for subdirectories
+          clearTimeout(autocompleteTimeout);
+          autocompleteTimeout = setTimeout(async () => {
+            try {
+              const res = await fetch(`/api/autocomplete?q=${encodeURIComponent(path + '/')}`);
+              const data = await res.json();
+              if (data.suggestions.length === 0) {
+                autocompleteDropdown.classList.remove('show');
+                return;
+              }
+              autocompleteDropdown.innerHTML = data.suggestions
+                .map(p => `<div class="autocomplete-item" data-path="${escapeHtml(p)}">${escapeHtml(p)}</div>`)
+                .join('');
+              autocompleteDropdown.classList.add('show');
+            } catch (err) {
+              console.error('Autocomplete failed:', err);
+            }
+          }, 50);
+        }
+      } else if (e.key === 'Escape') {
+        autocompleteDropdown.classList.remove('show');
+        browseDropdown.classList.remove('show');
+        highlightedIndex = -1;
+      } else {
+        // Reset highlight on any other key
+        highlightedIndex = -1;
+      }
+    });
+
+    function updateHighlight(items) {
+      items.forEach((item, index) => {
+        if (index === highlightedIndex) {
+          item.classList.add('highlighted');
+          item.scrollIntoView({ block: 'nearest' });
+        } else {
+          item.classList.remove('highlighted');
+        }
+      });
+    }
+
+    document.addEventListener('click', (e) => {
+      // Only close if clicked element is still in DOM and is outside wrapper
+      // If target is detached (!isConnected), it means it was removed by a navigation action inside browse UI
+      if (e.target.isConnected && !e.target.closest('.autocomplete-wrapper')) {
+        autocompleteDropdown.classList.remove('show');
+        browseDropdown.classList.remove('show');
+        highlightedIndex = -1;
+      }
+    });
+
+    // Folder browse functionality
+    const browseBtn = document.getElementById('browse-btn');
+    const browseDropdown = document.getElementById('browse-dropdown');
+    let currentBrowsePath = '';
+    let showHidden = false;
+
+    async function loadBrowseDirectory(path) {
+      browseDropdown.innerHTML = '<div class="browse-loading">Loading...</div>';
+      browseDropdown.classList.add('show');
+
+      try {
+        const url = `/api/browse?path=${encodeURIComponent(path || '~')}${showHidden ? '&hidden=1' : ''}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (!res.ok) {
+          browseDropdown.innerHTML = '<div class="browse-empty">Failed to load directory</div>';
+          return;
+        }
+
+        currentBrowsePath = data.path;
+        renderBrowseDirectory(data);
+      } catch (err) {
+        console.error('Browse failed:', err);
+        browseDropdown.innerHTML = '<div class="browse-empty">Failed to load directory</div>';
+      }
+    }
+
+    function buildBreadcrumbs(path) {
+      const parts = path.split('/').filter(p => p);
+      let breadcrumbs = '';
+      let currentPath = '';
+
+      // Add root
+      breadcrumbs += '<span class="breadcrumb-segment" data-path="/">/</span>';
+
+      parts.forEach((part, index) => {
+        currentPath += '/' + part;
+        breadcrumbs += '<span class="breadcrumb-separator">/</span>';
+        breadcrumbs += `<span class="breadcrumb-segment" data-path="${escapeHtml(currentPath)}">${escapeHtml(part)}</span>`;
+      });
+
+      return breadcrumbs;
+    }
+
+    function renderBrowseDirectory(data) {
+      const breadcrumbs = buildBreadcrumbs(data.path);
+
+      let html = `
+        <div class="browse-header">
+          <button class="browse-btn" id="browse-up" ${!data.parent ? 'disabled' : ''}>.. UP</button>
+          <div class="browse-path">${breadcrumbs}</div>
+          <button class="browse-btn ${showHidden ? 'active' : ''}" id="browse-toggle-hidden" title="Toggle hidden folders">.*</button>
+          <button class="browse-btn" id="browse-select">SELECT</button>
+        </div>
+      `;
+
+      if (data.children.length === 0) {
+        html += '<div class="browse-empty">No subdirectories</div>';
+      } else {
+        html += data.children
+          .map(child => `
+            <div class="browse-item" data-path="${escapeHtml(child.path)}">
+              ${escapeHtml(child.name)}
+            </div>
+          `)
+          .join('');
+      }
+
+      browseDropdown.innerHTML = html;
+
+      // Attach event listeners
+      const upBtn = document.getElementById('browse-up');
+      const selectBtn = document.getElementById('browse-select');
+
+      if (upBtn && !upBtn.disabled) {
+        upBtn.addEventListener('click', () => {
+          if (data.parent) loadBrowseDirectory(data.parent);
+        });
+      }
+
+      if (selectBtn) {
+        selectBtn.addEventListener('click', () => {
+          folderInput.value = data.path;
+          browseDropdown.classList.remove('show');
+        });
+      }
+
+      // Handle hidden folders toggle
+      const toggleHiddenBtn = document.getElementById('browse-toggle-hidden');
+      if (toggleHiddenBtn) {
+        toggleHiddenBtn.addEventListener('click', () => {
+          showHidden = !showHidden;
+          loadBrowseDirectory(data.path);
+        });
+      }
+
+      // Handle breadcrumb clicks
+      const breadcrumbSegments = browseDropdown.querySelectorAll('.breadcrumb-segment');
+      breadcrumbSegments.forEach(segment => {
+        segment.addEventListener('click', () => {
+          const path = segment.dataset.path;
+          loadBrowseDirectory(path);
+        });
+      });
+
+      // Handle folder item clicks (single click navigates)
+      const items = browseDropdown.querySelectorAll('.browse-item');
+      items.forEach(item => {
+        item.addEventListener('click', () => {
+          const path = item.dataset.path;
+          loadBrowseDirectory(path);
+        });
+      });
+    }
+
+    // DIR button toggle
+    browseBtn.addEventListener('click', () => {
+      if (browseDropdown.classList.contains('show')) {
+        browseDropdown.classList.remove('show');
+      } else {
+        // Close autocomplete when opening browse
+        autocompleteDropdown.classList.remove('show');
+
+        // Use current input value or default to home
+        const startPath = folderInput.value.trim() || '~';
+        loadBrowseDirectory(startPath);
+      }
+    });
+
+    // Close browse when typing in input (let autocomplete take over)
+    folderInput.addEventListener('input', () => {
+      browseDropdown.classList.remove('show');
+    });
+
+    // New session form
+    document.getElementById('new-session-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const name = formData.get('name');
+      const folder = formData.get('folder');
+
+      try {
+        const res = await fetch('/api/sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, folder })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const session = data.session;
+
+          // Open the new session in a new tab
+          const url = `/session/${session.id}`;
+          window.open(url, '_blank');
+
+          // Reset form and reload sessions
+          e.target.reset();
+          await loadSessions();
+        } else {
+          const error = await res.json();
+          alert(error.error || 'Failed to create session');
+        }
+      } catch (err) {
+        console.error('Create failed:', err);
+        alert('Failed to create session');
+      }
+    });
+
+    // Load sessions on page load
+    loadSessions();
+  </script>
+</body>
+</html>

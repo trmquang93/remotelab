@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Code // Terminal Access</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --terminal-green: #00ff41;
+      --terminal-cyan: #00ffff;
+      --terminal-amber: #ffb000;
+      --bg-black: #0a0a0a;
+      --bg-dark: #121212;
+      --glow: 0 0 10px currentColor, 0 0 20px currentColor;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    @keyframes scanline {
+      0% { transform: translateY(-100%); }
+      100% { transform: translateY(100vh); }
+    }
+
+    @keyframes flicker {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.97; }
+    }
+
+    @keyframes typewriter {
+      from { width: 0; }
+      to { width: 100%; }
+    }
+
+    @keyframes blink {
+      0%, 49% { border-color: var(--terminal-green); }
+      50%, 100% { border-color: transparent; }
+    }
+
+    @keyframes glitch {
+      0% { transform: translate(0); }
+      20% { transform: translate(-2px, 2px); }
+      40% { transform: translate(-2px, -2px); }
+      60% { transform: translate(2px, 2px); }
+      80% { transform: translate(2px, -2px); }
+      100% { transform: translate(0); }
+    }
+
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--bg-black);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+      color: var(--terminal-green);
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background:
+        repeating-linear-gradient(
+          0deg,
+          rgba(0, 255, 65, 0.03) 0px,
+          rgba(0, 255, 65, 0.03) 1px,
+          transparent 1px,
+          transparent 2px
+        );
+      pointer-events: none;
+      z-index: 1;
+      animation: flicker 0.15s infinite;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: linear-gradient(
+        to bottom,
+        rgba(0, 255, 65, 0.8),
+        transparent
+      );
+      box-shadow: 0 0 20px rgba(0, 255, 65, 0.5);
+      animation: scanline 8s linear infinite;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .terminal-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0.03;
+      font-size: 12px;
+      line-height: 1.4;
+      overflow: hidden;
+      color: var(--terminal-green);
+      pointer-events: none;
+      white-space: pre;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .container {
+      background: var(--bg-dark);
+      border: 2px solid var(--terminal-green);
+      box-shadow:
+        0 0 20px rgba(0, 255, 65, 0.3),
+        inset 0 0 60px rgba(0, 255, 65, 0.05);
+      padding: 0;
+      width: 100%;
+      max-width: 600px;
+      position: relative;
+      z-index: 10;
+      animation: flicker 0.1s infinite;
+    }
+
+    .terminal-header {
+      background: var(--terminal-green);
+      color: var(--bg-black);
+      padding: 8px 16px;
+      font-weight: 700;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .terminal-header::before {
+      content: '▊▊▊';
+      font-size: 10px;
+    }
+
+    .terminal-body {
+      padding: 32px 24px;
+    }
+
+    .ascii-border {
+      border: 1px solid var(--terminal-green);
+      padding: 24px;
+      margin-bottom: 24px;
+      position: relative;
+    }
+
+    .ascii-border::before,
+    .ascii-border::after {
+      content: '╔════════════════════════╗';
+      position: absolute;
+      left: 0;
+      font-size: 11px;
+      color: var(--terminal-green);
+      opacity: 0.5;
+    }
+
+    .ascii-border::before { top: -6px; }
+    .ascii-border::after {
+      content: '╚════════════════════════╝';
+      bottom: -6px;
+    }
+
+    h1 {
+      color: var(--terminal-cyan);
+      font-size: 32px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      text-shadow: var(--glow);
+      letter-spacing: -1px;
+      overflow: hidden;
+      white-space: nowrap;
+      border-right: 3px solid var(--terminal-cyan);
+      animation: typewriter 1.5s steps(30) 1s both, blink 0.75s step-end infinite;
+      display: inline-block;
+    }
+
+    .prompt {
+      color: var(--terminal-amber);
+      font-size: 14px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .prompt::before {
+      content: '$';
+      color: var(--terminal-green);
+      font-weight: 700;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      color: var(--terminal-green);
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    label::before {
+      content: '> ';
+      color: var(--terminal-cyan);
+    }
+
+    input {
+      width: 100%;
+      padding: 12px 16px;
+      background: var(--bg-black);
+      border: 2px solid var(--terminal-green);
+      color: var(--terminal-cyan);
+      font-size: 16px;
+      font-family: 'JetBrains Mono', monospace;
+      transition: all 0.2s;
+      box-shadow: inset 0 0 20px rgba(0, 255, 65, 0.1);
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--terminal-cyan);
+      box-shadow:
+        0 0 15px rgba(0, 255, 255, 0.5),
+        inset 0 0 20px rgba(0, 255, 255, 0.1);
+      animation: glitch 0.3s;
+    }
+
+    input::placeholder {
+      color: rgba(0, 255, 65, 0.3);
+    }
+
+    button {
+      width: 100%;
+      padding: 16px;
+      background: var(--terminal-green);
+      border: 2px solid var(--terminal-green);
+      color: var(--bg-black);
+      font-size: 14px;
+      font-weight: 800;
+      font-family: 'JetBrains Mono', monospace;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    button::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.3),
+        transparent
+      );
+      transition: left 0.5s;
+    }
+
+    button:hover::before {
+      left: 100%;
+    }
+
+    button:hover {
+      background: var(--terminal-cyan);
+      border-color: var(--terminal-cyan);
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
+      transform: translateY(-2px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .error {
+      background: rgba(255, 0, 0, 0.1);
+      border: 2px solid #ff0000;
+      color: #ff6b6b;
+      padding: 12px;
+      margin-bottom: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      animation: glitch 0.5s infinite;
+    }
+
+    .error::before {
+      content: '[ERROR] ';
+      color: #ff0000;
+    }
+
+    .footer {
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(0, 255, 65, 0.2);
+      font-size: 11px;
+      color: rgba(0, 255, 65, 0.5);
+      text-align: center;
+      font-weight: 400;
+    }
+
+    @media (max-width: 480px) {
+      .container {
+        max-width: 100%;
+      }
+      h1 {
+        font-size: 24px;
+      }
+      .terminal-body {
+        padding: 24px 16px;
+      }
+      .ascii-border {
+        padding: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="terminal-bg">
+01001000 01100101 01101100 01101100 01101111
+SYSTEM_BOOT............................[OK]
+LOADING_AUTHENTICATION_MODULE..........[OK]
+INITIALIZING_SECURE_CONNECTION.........[OK]
+READY_FOR_INPUT........................[OK]
+  </div>
+
+  <div class="container">
+    <div class="terminal-header">
+      <span>Claude Code Terminal</span>
+      <span style="margin-left: auto; opacity: 0.7;">v2.0.1</span>
+    </div>
+
+    <div class="terminal-body">
+      <div class="ascii-border">
+        <h1>CLAUDE_CODE</h1>
+        <div class="prompt">authentication required</div>
+      </div>
+
+      {{ERROR}}
+
+      <form method="POST" action="/login">
+        <div class="form-group">
+          <label for="username">User</label>
+          <input
+            type="text"
+            id="username"
+            name="username"
+            required
+            autofocus
+            autocomplete="username"
+            placeholder="enter username">
+        </div>
+        <div class="form-group">
+          <label for="password">Pass</label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            required
+            autocomplete="current-password"
+            placeholder="enter password">
+        </div>
+        <button type="submit">▶ Execute Login</button>
+      </form>
+
+      <div class="footer">
+        SECURE CONNECTION ESTABLISHED // ENCRYPTED TRANSPORT
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,24 @@
+#!/bin/bash
+# Accept session name and folder as CLI arguments (passed by ttyd via --url-arg)
+SESSION_NAME="${1:-claude-web}"
+WORK_DIR="${2:-$HOME}"
+
+# Source shell profile to get proper PATH and environment
+if [ -f "$HOME/.zshrc" ]; then
+    source "$HOME/.zshrc"
+elif [ -f "$HOME/.bash_profile" ]; then
+    source "$HOME/.bash_profile"
+fi
+
+# Validate folder exists, fall back to $HOME if not
+if [ ! -d "$WORK_DIR" ]; then
+    echo "Warning: Folder '$WORK_DIR' does not exist, falling back to $HOME"
+    WORK_DIR="$HOME"
+fi
+
+SOCKET_DIR="$HOME/.config/claude-web/sockets"
+mkdir -p "$SOCKET_DIR"
+SOCKET="$SOCKET_DIR/$SESSION_NAME.dtach"
+
+cd "$WORK_DIR"
+exec dtach -A "$SOCKET" -Ez claude
