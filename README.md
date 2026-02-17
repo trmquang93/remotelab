@@ -16,8 +16,7 @@ Access [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) from an
 
 ## Demo
 
-<!-- Add a screenshot or GIF here showing the dashboard and terminal in action -->
-<!-- Example: ![Dashboard and terminal on iPhone](docs/demo.gif) -->
+![claude-code-remote demo — dashboard and terminal on iPhone](docs/demo.gif)
 
 > Open your HTTPS URL on any device — log in, create a session pointing at a project folder, and get a full Claude Code terminal in the browser.
 
