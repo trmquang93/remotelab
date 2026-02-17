@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=overlays-content">
-  <title>{{SESSION_NAME}} // Claude Code</title>
+  <title>{{SESSION_NAME_HTML}} // Claude Code</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
@@ -476,9 +476,9 @@
   <div class="toolbar">
     <a href="/" class="back-btn">← Back</a>
     <div class="session-info">
-      <span class="session-name">{{SESSION_NAME}}</span>
+      <span class="session-name">{{SESSION_NAME_HTML}}</span>
       <span>|</span>
-      <span class="session-folder">{{SESSION_FOLDER}}</span>
+      <span class="session-folder">{{SESSION_FOLDER_HTML}}</span>
     </div>
     <div class="toolbar-actions">
       <button id="refresh-btn" class="toolbar-btn">Refresh</button>
@@ -492,7 +492,7 @@
       <iframe
         id="terminal-iframe"
         class="terminal-iframe"
-        src="/terminal/?arg=claude-{{SESSION_ID}}&arg={{SESSION_FOLDER}}"
+        src="/terminal/?arg=claude-{{SESSION_ID_URL}}&arg={{SESSION_FOLDER_URL}}"
         allow="clipboard-read; clipboard-write">
       </iframe>
 
@@ -539,8 +539,8 @@
   <div id="drag-overlay" class="drag-overlay"></div>
 
   <script>
-    const SESSION_ID = '{{SESSION_ID}}';
-    const SESSION_FOLDER = '{{SESSION_FOLDER}}';
+    const SESSION_ID = '{{SESSION_ID_JS}}';
+    const SESSION_FOLDER = '{{SESSION_FOLDER_JS}}';
     let autoRefreshInterval = null;
     let currentDiffData = null;
 
