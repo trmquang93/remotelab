@@ -718,7 +718,7 @@
                style="flex: 1;">
               ▶ Open
             </a>
-            <button onclick="deleteSession('${session.id}')" class="btn btn-danger">
+            <button data-session-id="${session.id}" class="btn btn-danger">
               ✕ Delete
             </button>
           </div>
@@ -755,6 +755,13 @@
         alert('Failed to delete session');
       }
     }
+
+    document.getElementById('sessions-container').addEventListener('click', function(e) {
+      const btn = e.target.closest('button[data-session-id]');
+      if (btn) {
+        deleteSession(btn.dataset.sessionId);
+      }
+    });
 
     // Autocomplete functionality
     let autocompleteTimeout;

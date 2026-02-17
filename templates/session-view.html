@@ -517,6 +517,7 @@
 
       <!-- Mobile Keyboard Toolbar -->
       <div class="mobile-keyboard-toolbar">
+        <button data-key="esc" title="Escape">ESC</button>
         <button data-key="up" title="Up Arrow">↑</button>
         <button data-key="down" title="Down Arrow">↓</button>
         <button data-key="left" title="Left Arrow">←</button>
@@ -622,7 +623,7 @@
         const fileId = 'file_' + Math.random().toString(36).substr(2, 9);
         return `
           <div class="file-card collapsed" id="${fileId}">
-            <div class="file-header" onclick="toggleFile('${fileId}')">
+            <div class="file-header" data-file-id="${fileId}">
               <div class="file-name">${escapeHtml(file.path)}</div>
               <div class="file-stats">
                 <span class="additions">+${file.additions}</span> /
@@ -685,6 +686,15 @@
         card.classList.toggle('collapsed');
       }
     }
+
+    // Use event delegation because inline onclick is blocked by CSP
+    document.getElementById('diff-content').addEventListener('click', function(e) {
+      const header = e.target.closest('.file-header');
+      if (header) {
+        const fileId = header.dataset.fileId;
+        if (fileId) toggleFile(fileId);
+      }
+    });
 
     function escapeHtml(str) {
       const div = document.createElement('div');
@@ -791,6 +801,7 @@
       if (!toolbar) return;
 
       const keyMap = {
+        'esc': '\x1b',
         'up': '\x1b[A',
         'down': '\x1b[B',
         'right': '\x1b[C',
@@ -1081,19 +1092,40 @@
       }
 
       window.focusKeyboardProxy = function() {
+        proxy.value = ' ';
         proxy.focus();
+        proxy.setSelectionRange(1, 1);
       };
+
+      // Handle backspace/delete via beforeinput (reliable on iOS virtual keyboard)
+      proxy.addEventListener('beforeinput', (e) => {
+        const term = getTerm();
+        if (!term || typeof term.input !== 'function') return;
+
+        if (e.inputType === 'deleteContentBackward') {
+          e.preventDefault();
+          proxy.value = ' ';
+          term.input('\x7f', true);
+        } else if (e.inputType === 'deleteContentForward') {
+          e.preventDefault();
+          proxy.value = ' ';
+          term.input('\x1b[3~', true);
+        }
+      });
 
       // Forward regular typed characters to xterm
       proxy.addEventListener('input', (e) => {
         // Skip compositionend-handled text (handled separately)
         if (e.isComposing) return;
         const text = proxy.value;
-        if (!text) return;
-        proxy.value = '';
+        if (!text || text === ' ') { proxy.value = ' '; return; }
+        // Strip leading sentinel space if present
+        const clean = text.startsWith(' ') ? text.slice(1) : text;
+        proxy.value = ' ';
+        if (!clean) return;
         const term = getTerm();
         if (term && typeof term.input === 'function') {
-          term.input(text, true);
+          term.input(clean, true);
         }
       });
 
@@ -1104,22 +1136,22 @@
 
         let sequence = null;
         switch (e.key) {
-          case 'Enter':      sequence = e.shiftKey ? '\\n' : '\\r'; break;
-          case 'Backspace':  sequence = '\\x7f'; break;
-          case 'Escape':     sequence = '\\x1b'; break;
-          case 'Tab':        sequence = e.shiftKey ? '\\x1b[Z' : '\\t'; break;
-          case 'ArrowUp':    sequence = '\\x1b[A'; break;
-          case 'ArrowDown':  sequence = '\\x1b[B'; break;
-          case 'ArrowRight': sequence = '\\x1b[C'; break;
-          case 'ArrowLeft':  sequence = '\\x1b[D'; break;
-          case 'Home':       sequence = '\\x1b[H'; break;
-          case 'End':        sequence = '\\x1b[F'; break;
-          case 'Delete':     sequence = '\\x1b[3~'; break;
+          case 'Enter':      sequence = e.shiftKey ? '\n' : '\r'; break;
+          case 'Backspace':  sequence = '\x7f'; break;
+          case 'Escape':     sequence = '\x1b'; break;
+          case 'Tab':        sequence = e.shiftKey ? '\x1b[Z' : '\t'; break;
+          case 'ArrowUp':    sequence = '\x1b[A'; break;
+          case 'ArrowDown':  sequence = '\x1b[B'; break;
+          case 'ArrowRight': sequence = '\x1b[C'; break;
+          case 'ArrowLeft':  sequence = '\x1b[D'; break;
+          case 'Home':       sequence = '\x1b[H'; break;
+          case 'End':        sequence = '\x1b[F'; break;
+          case 'Delete':     sequence = '\x1b[3~'; break;
         }
 
         if (sequence !== null) {
           e.preventDefault();
-          proxy.value = '';
+          proxy.value = ' ';
           term.input(sequence, true);
         }
       });
