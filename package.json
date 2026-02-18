@@ -1,17 +1,55 @@
 {
-  "name": "claude-code-remote",
+  "name": "@trmquang93/claude-code-remote",
   "version": "1.0.0",
   "description": "Remote browser access to Claude Code CLI via HTTPS",
   "type": "module",
   "license": "MIT",
+  "author": "trmquang93",
+  "homepage": "https://github.com/trmquang93/claude-code-remote#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/trmquang93/claude-code-remote.git"
+  },
+  "bugs": {
+    "url": "https://github.com/trmquang93/claude-code-remote/issues"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "remote",
+    "ttyd",
+    "terminal",
+    "proxy",
+    "ssh",
+    "macos"
+  ],
   "engines": {
     "node": ">=18.0.0"
   },
-  "os": ["darwin"],
+  "os": [
+    "darwin"
+  ],
+  "bin": {
+    "claude-code-remote": "cli.js"
+  },
+  "files": [
+    "cli.js",
+    "auth-proxy.mjs",
+    "hash-password.mjs",
+    "setup.sh",
+    "start.sh",
+    "stop.sh",
+    "claude-ttyd-session",
+    "lib/",
+    "templates/",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
-    "start": "./start.sh",
+    "start": "node auth-proxy.mjs",
     "stop": "./stop.sh",
     "setup": "./setup.sh",
-    "hash-password": "node hash-password.mjs"
+    "hash-password": "node hash-password.mjs",
+    "prepublishOnly": "chmod +x cli.js setup.sh start.sh stop.sh claude-ttyd-session"
   }
 }

@@ -3,6 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platform: macOS](https://img.shields.io/badge/Platform-macOS-lightgrey?logo=apple)](https://github.com/trmquang93/claude-code-remote)
 [![Node.js 18+](https://img.shields.io/badge/Node.js-18%2B-green?logo=node.js&logoColor=white)](https://nodejs.org)
+[![npm](https://img.shields.io/npm/v/@trmquang93/claude-code-remote?logo=npm)](https://www.npmjs.com/package/@trmquang93/claude-code-remote)
 [![GitHub stars](https://img.shields.io/github/stars/trmquang93/claude-code-remote?style=social)](https://github.com/trmquang93/claude-code-remote/stargazers)
 
 Access [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) from any browser on any device via HTTPS — phone, tablet, or any machine that can open a web page.
@@ -52,12 +53,34 @@ Three services:
 - **Claude authentication** — run `claude login` or set `ANTHROPIC_API_KEY` in your shell profile (`~/.zshrc` or `~/.bash_profile`) before setup. The session script sources your profile automatically, so any auth method that works in your terminal will work here.
 - **A domain managed by Cloudflare** — a cheap domain ($1–12/year) on the free Cloudflare plan is sufficient
 
-## Quick Start
+## Installation
+
+**Via npm (recommended):**
+
+```bash
+npm install -g @trmquang93/claude-code-remote
+claude-code-remote setup
+```
+
+**Via npx (no install):**
+
+```bash
+npx @trmquang93/claude-code-remote setup
+```
+
+**From source:**
 
 ```bash
 git clone https://github.com/trmquang93/claude-code-remote.git
 cd claude-code-remote
 ./setup.sh
+```
+
+## Quick Start
+
+```bash
+npm install -g @trmquang93/claude-code-remote
+claude-code-remote setup
 ```
 
 The setup script will:
@@ -90,6 +113,13 @@ Copy `.env.example` to `.env` and edit as needed, then restart the auth-proxy se
 ### Start / stop services
 
 ```bash
+claude-code-remote start
+claude-code-remote stop
+```
+
+Or if installed from source:
+
+```bash
 ./start.sh
 ./stop.sh
 ```
@@ -113,7 +143,7 @@ tail -f ~/Library/Logs/cloudflared.log
 ### Change password
 
 ```bash
-node hash-password.mjs <username> <new-password>
+claude-code-remote hash-password <username> <new-password>
 # Restarts auth-proxy automatically to pick up the new hash
 ```
 
