@@ -44,7 +44,7 @@ claude login
 ### 3. Run Setup Script
 
 ```bash
-cd /path/to/claude-code-remote
+cd /path/to/remotelab
 ./setup.sh
 ```
 

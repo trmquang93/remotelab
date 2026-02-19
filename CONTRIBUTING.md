@@ -1,4 +1,4 @@
-# Contributing to claude-code-remote
+# Contributing to remotelab
 
 Thank you for your interest in contributing! This document explains how to get set up
 for local development and how to submit changes.
@@ -17,8 +17,8 @@ for local development and how to submit changes.
 
 ```bash
 # Clone the repo
-git clone https://github.com/YOUR_USERNAME/claude-code-remote.git
-cd claude-code-remote
+git clone https://github.com/YOUR_USERNAME/remotelab.git
+cd remotelab
 
 # Run the automated setup (will prompt for domain and credentials)
 ./setup.sh

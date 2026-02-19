@@ -1,6 +1,6 @@
 # Transferring to Another Machine
 
-This guide explains how to move the claude-code-remote setup to a new machine or share it
+This guide explains how to move the remotelab setup to a new machine or share it
 with others.
 
 ## What's Portable

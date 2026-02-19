@@ -24,16 +24,16 @@ function runShell(script) {
 }
 
 function printHelp() {
-  console.log(`claude-code-remote v${pkg.version}
+  console.log(`remotelab v${pkg.version}
 
 Usage:
-  claude-code-remote setup                    Run interactive setup
-  claude-code-remote start                    Start auth proxy + ttyd
-  claude-code-remote stop                     Stop all services
-  claude-code-remote server                   Run auth proxy in foreground
-  claude-code-remote hash-password <user> <pass>  Hash a password for config
-  claude-code-remote --help                   Show this help message
-  claude-code-remote --version                Show version`);
+  remotelab setup                    Run interactive setup
+  remotelab start                    Start auth proxy + ttyd
+  remotelab stop                     Stop all services
+  remotelab server                   Run auth proxy in foreground
+  remotelab hash-password <user> <pass>  Hash a password for config
+  remotelab --help                   Show this help message
+  remotelab --version                Show version`);
 }
 
 switch (command) {
@@ -75,6 +75,6 @@ switch (command) {
 
   default:
     console.error(`Unknown command: ${command}`);
-    console.error('Run "claude-code-remote --help" for usage.');
+    console.error('Run "remotelab --help" for usage.');
     process.exit(1);
 }

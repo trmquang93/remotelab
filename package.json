@@ -1,21 +1,27 @@
 {
-  "name": "@trmquang93/claude-code-remote",
+  "name": "@trmquang93/remotelab",
   "version": "1.0.0",
-  "description": "Remote browser access to Claude Code CLI via HTTPS",
+  "description": "Remote browser access to any CLI dev tool (Claude, Copilot, Codex, Cline and more) via HTTPS",
   "type": "module",
   "license": "MIT",
   "author": "trmquang93",
-  "homepage": "https://github.com/trmquang93/claude-code-remote#readme",
+  "homepage": "https://github.com/trmquang93/remotelab#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/trmquang93/claude-code-remote.git"
+    "url": "git+https://github.com/trmquang93/remotelab.git"
   },
   "bugs": {
-    "url": "https://github.com/trmquang93/claude-code-remote/issues"
+    "url": "https://github.com/trmquang93/remotelab/issues"
   },
   "keywords": [
     "claude",
     "claude-code",
+    "copilot",
+    "codex",
+    "cline",
+    "ai",
+    "coding-assistant",
+    "multi-tool",
     "remote",
     "ttyd",
     "terminal",
@@ -30,7 +36,7 @@
     "darwin"
   ],
   "bin": {
-    "claude-code-remote": "cli.js"
+    "remotelab": "cli.js"
   },
   "files": [
     "cli.js",
@@ -43,7 +49,8 @@
     "lib/",
     "templates/",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "docs/"
   ],
   "scripts": {
     "start": "node auth-proxy.mjs",
