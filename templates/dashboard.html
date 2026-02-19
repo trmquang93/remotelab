@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Claude Code // Session Manager</title>
+  <title>AI Code Sessions // Session Manager</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
@@ -286,9 +286,18 @@
 
     .form-row {
       display: grid;
-      grid-template-columns: 1fr 2fr;
+      grid-template-columns: 1fr 1fr 2fr;
       gap: 16px;
       margin-bottom: 16px;
+    }
+
+    @media (max-width: 900px) {
+      .form-row {
+        grid-template-columns: 1fr 1fr;
+      }
+      .form-row .autocomplete-wrapper {
+        grid-column: 1 / -1;
+      }
     }
 
     label {
@@ -641,21 +650,149 @@
         font-size: 22px;
       }
     }
+
+    select {
+      width: 100%;
+      padding: 12px 16px;
+      background: var(--bg-black);
+      border: 2px solid var(--terminal-green);
+      color: var(--terminal-cyan);
+      font-size: 14px;
+      font-family: 'JetBrains Mono', monospace;
+      transition: all 0.2s;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2300ff41' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      padding-right: 36px;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: var(--terminal-cyan);
+      box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+    }
+
+    select option:disabled {
+      color: rgba(0, 255, 65, 0.3);
+    }
+
+    .session-tool-badge {
+      display: inline-block;
+      padding: 1px 5px;
+      border: 1px solid var(--terminal-amber);
+      color: var(--terminal-amber);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+
+    .tool-manager {
+      background: var(--bg-dark);
+      border: 2px solid var(--terminal-amber);
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 0 20px rgba(255, 176, 0, 0.1);
+    }
+
+    .tool-manager h2 {
+      color: var(--terminal-amber);
+      font-size: 18px;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .tools-list {
+      margin-bottom: 20px;
+    }
+
+    .tool-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      border: 1px solid rgba(0, 255, 65, 0.2);
+      margin-bottom: 6px;
+      background: var(--bg-darker);
+    }
+
+    .tool-item-name {
+      flex: 1;
+      color: var(--terminal-cyan);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .tool-item-id {
+      color: rgba(0, 255, 65, 0.5);
+      font-size: 11px;
+    }
+
+    .tool-status {
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .tool-status-ok {
+      color: var(--terminal-green);
+    }
+
+    .tool-status-missing {
+      color: rgba(255, 255, 255, 0.3);
+    }
+
+    .tool-builtin-badge {
+      padding: 1px 5px;
+      border: 1px solid rgba(0, 255, 65, 0.4);
+      color: rgba(0, 255, 65, 0.6);
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
+    .add-tool-form {
+      border-top: 1px solid rgba(255, 176, 0, 0.2);
+      padding-top: 16px;
+    }
+
+    .add-tool-form h3 {
+      color: var(--terminal-amber);
+      font-size: 13px;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .tool-form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    @media (max-width: 768px) {
+      .tool-form-row {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
       <div class="terminal-header">
-        <span>Claude Code // Session Manager</span>
+        <span>AI Code Sessions // Session Manager</span>
         <div class="header-actions">
           <span id="session-count" style="opacity: 0.7; font-size: 12px;">0 sessions</span>
           <a href="/logout" class="logout-btn">Logout</a>
         </div>
       </div>
       <div class="header-body">
-        <h1>CLAUDE_SESSIONS</h1>
-        <div class="subtitle">Manage multiple concurrent Claude Code sessions</div>
+        <h1>AI_CODE_SESSIONS</h1>
+        <div class="subtitle">Manage multiple concurrent AI coding sessions</div>
       </div>
     </div>
 
@@ -674,6 +811,12 @@
               required
               placeholder="my-project"
               autocomplete="off">
+          </div>
+          <div>
+            <label for="session-tool">Tool</label>
+            <select id="session-tool" name="tool">
+              <option value="claude">Loading...</option>
+            </select>
           </div>
           <div class="autocomplete-wrapper">
             <label for="session-folder">Project Folder</label>
@@ -699,6 +842,32 @@
       </form>
     </div>
 
+    <div class="tool-manager" id="tool-manager">
+      <h2>▶ Manage Tools</h2>
+      <div id="tools-list" class="tools-list"></div>
+      <div class="add-tool-form">
+        <h3>Add Custom Tool</h3>
+        <div class="tool-form-row">
+          <div>
+            <label for="tool-id-input">ID</label>
+            <input type="text" id="tool-id-input" placeholder="my-tool" autocomplete="off" title="Alphanumeric and hyphens only">
+          </div>
+          <div>
+            <label for="tool-name-input">Display Name</label>
+            <input type="text" id="tool-name-input" placeholder="My Tool" autocomplete="off">
+          </div>
+          <div>
+            <label for="tool-command-input">Command</label>
+            <input type="text" id="tool-command-input" placeholder="mytool" autocomplete="off">
+          </div>
+          <div>
+            <label>&nbsp;</label>
+            <button id="add-tool-btn" class="btn btn-primary" style="white-space:nowrap;">+ Add</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="footer">
       SECURE CONNECTION ESTABLISHED // MULTI-SESSION MODE ENABLED
     </div>
@@ -706,6 +875,7 @@
 
   <script nonce="{{NONCE}}">
     let sessions = [];
+    let tools = [];
 
     async function loadSessions() {
       try {
@@ -716,6 +886,91 @@
         updateSessionCount();
       } catch (err) {
         console.error('Failed to load sessions:', err);
+      }
+    }
+
+    async function loadTools() {
+      try {
+        const res = await fetch('/api/tools');
+        const data = await res.json();
+        tools = data.tools;
+        populateToolSelect(tools);
+        renderToolsList(tools);
+      } catch (err) {
+        console.error('Failed to load tools:', err);
+      }
+    }
+
+    function populateToolSelect(toolList) {
+      const select = document.getElementById('session-tool');
+      select.innerHTML = toolList.map(t =>
+        `<option value="${escapeHtml(t.id)}"${!t.available ? ' disabled' : ''}>${escapeHtml(t.name)}${!t.available ? ' (not installed)' : ''}</option>`
+      ).join('');
+      // Default to first available tool
+      const firstAvailable = toolList.find(t => t.available);
+      if (firstAvailable) select.value = firstAvailable.id;
+    }
+
+    function renderToolsList(toolList) {
+      const container = document.getElementById('tools-list');
+      if (!toolList.length) {
+        container.innerHTML = '<div style="color:rgba(0,255,65,0.4);font-size:12px;padding:8px 0;">No tools registered.</div>';
+        return;
+      }
+      container.innerHTML = toolList.map(t => `
+        <div class="tool-item">
+          <div class="tool-item-name">${escapeHtml(t.name)}</div>
+          <div class="tool-item-id">${escapeHtml(t.id)}</div>
+          <div class="tool-status ${t.available ? 'tool-status-ok' : 'tool-status-missing'}">${t.available ? '✓' : '✗'}</div>
+          ${t.builtin ? '<span class="tool-builtin-badge">builtin</span>' : `<button class="btn btn-danger" style="padding:4px 10px;font-size:11px;" data-remove-tool="${escapeHtml(t.id)}">Remove</button>`}
+        </div>
+      `).join('');
+    }
+
+    async function addCustomTool() {
+      const id = document.getElementById('tool-id-input').value.trim();
+      const name = document.getElementById('tool-name-input').value.trim();
+      const command = document.getElementById('tool-command-input').value.trim();
+
+      if (!id || !name || !command) {
+        alert('All fields are required');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/tools', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, name, command })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          document.getElementById('tool-id-input').value = '';
+          document.getElementById('tool-name-input').value = '';
+          document.getElementById('tool-command-input').value = '';
+          await loadTools();
+        } else {
+          alert(data.error || 'Failed to add tool');
+        }
+      } catch (err) {
+        console.error('Add tool failed:', err);
+        alert('Failed to add tool');
+      }
+    }
+
+    async function removeCustomTool(id) {
+      if (!confirm(`Remove tool "${id}"?`)) return;
+      try {
+        const res = await fetch(`/api/tools/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (res.ok) {
+          await loadTools();
+        } else {
+          alert(data.error || 'Failed to remove tool');
+        }
+      } catch (err) {
+        console.error('Remove tool failed:', err);
+        alert('Failed to remove tool');
       }
     }
 
@@ -739,11 +994,12 @@
             <div class="session-name">
               <span class="status-indicator ${session.active ? 'status-active' : 'status-inactive'}"></span>
               ${escapeHtml(session.name)}
+              <span class="session-tool-badge">${escapeHtml(session.tool || 'claude')}</span>
             </div>
           </div>
           <div class="session-folder">${escapeHtml(session.folder)}</div>
           <div class="session-meta">
-            ID: claude-${session.id} // Created: ${new Date(session.created).toLocaleString()}
+            ID: ${escapeHtml(session.tool || 'claude')}-${session.id} // Created: ${new Date(session.created).toLocaleString()}
           </div>
           <div class="session-actions">
             <a href="/session/${session.id}"
@@ -1068,18 +1324,30 @@
       browseDropdown.classList.remove('show');
     });
 
+    // Tool manager event delegation (remove buttons)
+    document.getElementById('tools-list').addEventListener('click', function(e) {
+      const btn = e.target.closest('button[data-remove-tool]');
+      if (btn) {
+        removeCustomTool(btn.dataset.removeTool);
+      }
+    });
+
+    // Add tool button
+    document.getElementById('add-tool-btn').addEventListener('click', addCustomTool);
+
     // New session form
     document.getElementById('new-session-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const formData = new FormData(e.target);
       const name = formData.get('name');
       const folder = formData.get('folder');
+      const tool = formData.get('tool') || 'claude';
 
       try {
         const res = await fetch('/api/sessions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, folder })
+          body: JSON.stringify({ name, folder, tool })
         });
 
         if (res.ok) {
@@ -1103,8 +1371,9 @@
       }
     });
 
-    // Load sessions on page load
+    // Load sessions and tools on page load
     loadSessions();
+    loadTools();
   </script>
 </body>
 </html>

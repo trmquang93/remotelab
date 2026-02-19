@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=overlays-content">
-  <title>{{SESSION_NAME_HTML}} // Claude Code</title>
+  <title>{{SESSION_NAME_HTML}} // {{SESSION_TOOL_ID}} // Remote</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
@@ -70,6 +70,15 @@
 
     .session-name {
       font-weight: 700;
+    }
+
+    .tool-badge {
+      padding: 2px 6px;
+      border: 1px solid var(--terminal-amber);
+      color: var(--terminal-amber);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     .session-folder {
@@ -525,6 +534,7 @@
     <a href="/" class="back-btn">← Back</a>
     <div class="session-info">
       <span class="session-name">{{SESSION_NAME_HTML}}</span>
+      <span class="tool-badge">{{SESSION_TOOL_ID}}</span>
       <span>|</span>
       <span class="session-folder">{{SESSION_FOLDER_HTML}}</span>
     </div>
@@ -540,7 +550,7 @@
       <iframe
         id="terminal-iframe"
         class="terminal-iframe"
-        src="/terminal/?arg=claude-{{SESSION_ID_URL}}&arg={{SESSION_FOLDER_URL}}"
+        src="/terminal/?arg={{SESSION_TOOL_ID_URL}}-{{SESSION_ID_URL}}&arg={{SESSION_FOLDER_URL}}&arg={{SESSION_TOOL_COMMAND_URL}}"
         allow="clipboard-read; clipboard-write">
       </iframe>
 

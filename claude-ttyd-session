@@ -1,13 +1,20 @@
 #!/bin/bash
-# Accept session name and folder as CLI arguments (passed by ttyd via --url-arg)
+# Accept session name, folder, and tool command as CLI arguments (passed by ttyd via --url-arg)
 SESSION_NAME="${1:-claude-web}"
 WORK_DIR="${2:-$HOME}"
+TOOL_CMD="${3:-claude}"
 
 # Source shell profile to get proper PATH and environment
 if [ -f "$HOME/.zshrc" ]; then
     source "$HOME/.zshrc"
 elif [ -f "$HOME/.bash_profile" ]; then
     source "$HOME/.bash_profile"
+fi
+
+# Validate tool command (only alphanumeric, hyphens, underscores allowed)
+if ! echo "$TOOL_CMD" | grep -qE '^[a-zA-Z0-9_-]+$'; then
+    echo "Error: Invalid tool command '$TOOL_CMD'"
+    exit 1
 fi
 
 # Validate folder exists, fall back to $HOME if not
@@ -21,4 +28,4 @@ mkdir -p "$SOCKET_DIR"
 SOCKET="$SOCKET_DIR/$SESSION_NAME.dtach"
 
 cd "$WORK_DIR"
-exec dtach -A "$SOCKET" -Ez claude
+exec dtach -A "$SOCKET" -Ez "$TOOL_CMD"
