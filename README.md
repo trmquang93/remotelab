@@ -22,6 +22,10 @@ Access any AI coding CLI tool — Claude Code, GitHub Copilot, Codex, Cline, and
 
 > Open your HTTPS URL on any device — log in, pick a tool, create a session pointing at a project folder, and get a full terminal in the browser. Switch between Claude Code, GitHub Copilot, Cline, or any custom CLI tool per session.
 
+## Demo
+
+![remotelab demo — dashboard and terminal on iPhone](docs/demo.gif)
+
 ## Architecture
 
 ```
