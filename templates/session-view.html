@@ -943,10 +943,30 @@
         }
       }
 
+      // Force terminal redraw on reconnect by triggering a resize cycle.
+      // This sends SIGWINCH through ttyd -> dtach -> child process (e.g. claude),
+      // causing TUI apps to repaint their UI with current state.
+      function forceTerminalRedraw() {
+        try {
+          const term = iframe.contentWindow.term;
+          if (!term || !term.cols || !term.rows) {
+            return;
+          }
+          const { cols, rows } = term;
+          term.resize(cols - 1, rows);
+          setTimeout(() => {
+            try { term.resize(cols, rows); } catch (e) {}
+          }, 50);
+        } catch (e) {
+          // Terminal not ready or cross-origin
+        }
+      }
+
       // Start polling when iframe loads
       iframe.addEventListener('load', () => {
         setTimeout(() => {
           scrollCheckInterval = setInterval(checkScrollPosition, 500);
+          forceTerminalRedraw();
         }, 1000); // Wait 1s for terminal to initialize
       });
 
