@@ -188,6 +188,8 @@ Navigate to your HTTPS URL after login. From the dashboard you can:
 
 **Terminal not loading** — check `lsof -i :7682` and `tail -f ~/Library/Logs/ttyd-claude.error.log`; verify `which claude` returns a path
 
+**Tool shows "not installed" on the dashboard** — the service runs under launchd with a minimal PATH. Non-interactive login shells (`zsh -l`) source `~/.zprofile` and `~/.zshenv` but **not** `~/.zshrc`. If your tool is installed in a directory added to `PATH` only in `~/.zshrc` (e.g. `~/.local/bin` for `claude`), remotelab supplements the PATH with common locations automatically. If your tool is in a non-standard location, add it to `~/.zprofile` or `~/.zshenv` so it is visible to login shells, then restart with `remotelab restart`.
+
 **Tunnel unreachable** — check `cloudflared tunnel info <tunnel-name>` and `~/Library/Logs/cloudflared.error.log`
 
 **Session opens but shows wrong directory** — verify the folder still exists; the script falls back to `$HOME` if the path is missing
