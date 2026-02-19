@@ -920,7 +920,12 @@
     (function() {
       const scrollBtn = document.getElementById('scroll-bottom-btn');
       const iframe = document.getElementById('terminal-iframe');
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       let scrollCheckInterval = null;
+      // Mobile auto-scroll state
+      let lastBaseY = 0;
+      let wasAtBottom = true;
+      let lineFeedDisposable = null;
 
       function checkScrollPosition() {
         try {
@@ -929,8 +934,27 @@
             return;
           }
 
-          const baseY = term.buffer.active.baseY;
-          const viewportY = term.buffer.active.viewportY;
+          const buf = term.buffer.active;
+          const baseY = buf.baseY;
+          const viewportY = buf.viewportY;
+
+          // Mobile auto-scroll: when new content arrives and user was at bottom, follow it
+          if (isMobile && baseY > lastBaseY) {
+            if (wasAtBottom) {
+              term.scrollToBottom();
+            }
+            lastBaseY = baseY;
+            // Re-read after potential scroll to reflect the new position accurately
+            wasAtBottom = buf.viewportY >= buf.baseY;
+            if (wasAtBottom) {
+              scrollBtn.classList.remove('visible');
+            } else {
+              scrollBtn.classList.add('visible');
+            }
+            return;
+          }
+
+          wasAtBottom = viewportY >= baseY;
 
           // Show button if scrolled up (viewportY < baseY means not at bottom)
           if (viewportY < baseY) {
@@ -940,6 +964,21 @@
           }
         } catch (err) {
           // Terminal not ready yet or cross-origin issue
+        }
+      }
+
+      // Attach onLineFeed for instant response on mobile (polling is the fallback)
+      function attachLineFeedListener() {
+        if (!isMobile) return;
+        try {
+          const term = iframe.contentWindow.term;
+          if (!term || typeof term.onLineFeed !== 'function') return;
+          if (lineFeedDisposable) return; // already attached
+          lineFeedDisposable = term.onLineFeed(() => {
+            checkScrollPosition();
+          });
+        } catch (err) {
+          // Cross-iframe access failed; polling will handle it
         }
       }
 
@@ -965,7 +1004,9 @@
       // Start polling when iframe loads
       iframe.addEventListener('load', () => {
         setTimeout(() => {
-          scrollCheckInterval = setInterval(checkScrollPosition, 500);
+          const pollInterval = isMobile ? 150 : 500;
+          scrollCheckInterval = setInterval(checkScrollPosition, pollInterval);
+          attachLineFeedListener();
           forceTerminalRedraw();
         }, 1000); // Wait 1s for terminal to initialize
       });
@@ -976,6 +1017,7 @@
           const term = iframe.contentWindow.term;
           if (term && typeof term.scrollToBottom === 'function') {
             term.scrollToBottom();
+            wasAtBottom = true;
             if (typeof window.focusKeyboardProxy === 'function') {
               window.focusKeyboardProxy();
             } else {
@@ -988,10 +1030,13 @@
         }
       });
 
-      // Clean up interval on page unload
+      // Clean up interval and listeners on page unload
       window.addEventListener('beforeunload', () => {
         if (scrollCheckInterval) {
           clearInterval(scrollCheckInterval);
+        }
+        if (lineFeedDisposable) {
+          lineFeedDisposable.dispose();
         }
       });
     })();
