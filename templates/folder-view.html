@@ -589,6 +589,29 @@
         height: calc(100vh - 90px - 46px);
       }
     }
+
+    .drop-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 255, 65, 0.08);
+      border: 3px dashed var(--terminal-green);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--terminal-green);
+      pointer-events: none;
+    }
+    .drop-overlay.visible { display: flex; pointer-events: auto; }
+
+    .drag-catcher {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      background: transparent;
+    }
   </style>
 </head>
 <body>
@@ -599,6 +622,7 @@
       <button id="refresh-btn" class="toolbar-btn">Refresh</button>
       <button id="auto-refresh-btn" class="toolbar-btn">Auto</button>
       <button id="collapse-btn" class="toolbar-btn">Collapse</button>
+      <button id="upload-btn" class="toolbar-btn" title="Upload file to folder">Upload</button>
     </div>
   </div>
 
@@ -610,7 +634,9 @@
   </div>
 
   <div class="main-container" id="main-container">
-    <div class="terminal-panel" id="terminal-panel">
+    <div class="drop-overlay" id="drop-overlay">Drop file to upload</div>
+    <div class="terminal-panel" id="terminal-panel" style="position:relative;">
+      <div class="drag-catcher" id="drag-catcher"></div>
       <div class="empty-state" id="empty-state">
         <div>No sessions open</div>
         <div class="empty-hint">Click "+ New" to create a terminal session</div>
@@ -1686,6 +1712,18 @@
                   return;
                 }
               }
+              // Fallback: upload any pasted file (non-image) to the folder
+              for (var j = 0; j < items.length; j++) {
+                if (items[j].kind === 'file') {
+                  var file = items[j].getAsFile();
+                  if (file && window.parent._uploadFile) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    window.parent._uploadFile(file);
+                    return;
+                  }
+                }
+              }
             }, true);
           } catch (err) { setTimeout(tryAttach, 500); }
         }
@@ -1804,6 +1842,155 @@
 
       // Expose upload function for iframe paste handlers
       window._clipboardImageUpload = uploadAndPasteImage;
+
+      // General file upload (drag-drop, button, paste fallback)
+      var MAX_UPLOAD_SIZE = 25 * 1024 * 1024;
+
+      function typeIntoTerminal(text) {
+        var iframe = document.querySelector('.terminal-iframe.active');
+        if (!iframe) return;
+        try {
+          var term = iframe.contentWindow && iframe.contentWindow.term;
+          if (term && typeof term.input === 'function') {
+            term.input(text, true);
+          }
+        } catch (e) {
+          console.error('typeIntoTerminal failed:', e);
+        }
+      }
+
+      function uploadFile(file) {
+        if (file.size > MAX_UPLOAD_SIZE) {
+          showToast('File too large (max 25 MB)', true);
+          return;
+        }
+        showToast('Uploading ' + file.name + '...');
+        fetch('/api/upload-file', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/octet-stream',
+            'X-Filename': file.name
+          },
+          body: file
+        }).then(function(res) {
+          return res.json().then(function(data) { return { ok: res.ok, data: data }; });
+        }).then(function(result) {
+          if (!result.ok) throw new Error(result.data.error || 'Upload failed');
+          showToast('Saved: ' + result.data.path);
+          typeIntoTerminal('@' + result.data.path + ' ');
+        }).catch(function(err) {
+          showToast('Upload failed: ' + err.message, true);
+        });
+      }
+      window._uploadFile = uploadFile;
+
+      // Upload button
+      var uploadBtn = document.getElementById('upload-btn');
+      if (uploadBtn) {
+        uploadBtn.addEventListener('click', function() {
+          var input = document.createElement('input');
+          input.type = 'file';
+          input.multiple = true;
+          input.addEventListener('change', function() {
+            for (var i = 0; i < input.files.length; i++) {
+              uploadFile(input.files[i]);
+            }
+          });
+          input.click();
+        });
+      }
+
+      // Drag-and-drop: use a transparent drag-catcher div over the iframe
+      var overlay = document.getElementById('drop-overlay');
+      var catcher = document.getElementById('drag-catcher');
+      var dragCounter = 0;
+
+      function showDropOverlay() {
+        dragCounter++;
+        overlay.classList.add('visible');
+      }
+      function hideDropOverlay() {
+        dragCounter--;
+        if (dragCounter <= 0) {
+          dragCounter = 0;
+          overlay.classList.remove('visible');
+        }
+      }
+      function resetDropOverlay() {
+        dragCounter = 0;
+        overlay.classList.remove('visible');
+      }
+      function handleDrop(e) {
+        e.preventDefault();
+        resetDropOverlay();
+        var files = e.dataTransfer && e.dataTransfer.files;
+        if (files) {
+          for (var i = 0; i < files.length; i++) {
+            uploadFile(files[i]);
+          }
+        }
+      }
+
+      // The drag-catcher is pointer-events:none by default.
+      // Forward mouse events from catcher to elements underneath so
+      // terminal interaction is unaffected. Drag events are caught here.
+      // We toggle pointer-events on/off: normally off (so iframe gets clicks),
+      // but we use a periodic check during external drags.
+
+      // Listen on document for areas outside the iframe
+      document.addEventListener('dragenter', function(e) {
+        e.preventDefault();
+        showDropOverlay();
+      });
+      document.addEventListener('dragover', function(e) {
+        e.preventDefault();
+      });
+      document.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        hideDropOverlay();
+      });
+
+      // The catcher intercepts drags over the iframe area
+      catcher.addEventListener('dragenter', function(e) {
+        e.preventDefault();
+        showDropOverlay();
+      });
+      catcher.addEventListener('dragover', function(e) {
+        e.preventDefault();
+      });
+      catcher.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        hideDropOverlay();
+      });
+      catcher.addEventListener('drop', handleDrop);
+
+      // Overlay catches the actual drop (it covers everything when visible)
+      overlay.addEventListener('drop', handleDrop);
+      document.addEventListener('drop', function(e) {
+        e.preventDefault();
+        resetDropOverlay();
+      });
+
+      // Forward mouse events through the catcher to the iframe beneath
+      ['mousedown', 'mouseup', 'click', 'dblclick', 'mousemove', 'contextmenu'].forEach(function(evtName) {
+        catcher.addEventListener(evtName, function(e) {
+          catcher.style.pointerEvents = 'none';
+          var el = document.elementFromPoint(e.clientX, e.clientY);
+          catcher.style.pointerEvents = '';
+          if (el && el !== catcher) {
+            el.dispatchEvent(new MouseEvent(evtName, e));
+          }
+          if (evtName === 'mousedown') {
+            // Keep catcher out of the way during active mouse interaction
+            catcher.style.pointerEvents = 'none';
+          }
+        });
+      });
+
+      // Re-enable catcher when mouse is released anywhere
+      document.addEventListener('mouseup', function() {
+        catcher.style.pointerEvents = '';
+      });
 
       // Mobile "Img" button handler -- uses async clipboard API (may not work in Safari)
       var toolbar = document.querySelector('.mobile-keyboard-toolbar');
