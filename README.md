@@ -26,6 +26,14 @@ Access any AI coding CLI tool — Claude Code, GitHub Copilot, Codex, Cline, and
 
 ![remotelab demo — dashboard and terminal on iPhone](docs/demo.gif)
 
+## Clipboard Image Paste
+
+Paste images directly from your clipboard into the remote terminal session. Copy any image (screenshot, photo, diagram) and press **Ctrl+V** / **Cmd+V** in the browser — the image is sent to the CLI tool as if it were a local file.
+
+![Clipboard image paste in a remote session](docs/clipboard-paste.png)
+
+> Copy an image on any device, switch to your remote terminal tab, and paste. The image appears inline in the conversation — no file upload dialog, no manual path entry.
+
 ## Architecture
 
 ```
