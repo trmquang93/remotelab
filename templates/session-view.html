@@ -554,7 +554,7 @@
       <iframe
         id="terminal-iframe"
         class="terminal-iframe"
-        src="/terminal/?arg={{SESSION_TOOL_ID_URL}}-{{SESSION_ID_URL}}&arg={{SESSION_FOLDER_URL}}&arg={{SESSION_TOOL_COMMAND_URL}}"
+        src="/terminal/{{SESSION_ID_URL}}/"
         allow="clipboard-read; clipboard-write">
       </iframe>
 
@@ -579,6 +579,7 @@
 
       <!-- Mobile Keyboard Toolbar -->
       <div class="mobile-keyboard-toolbar">
+        <button data-action="paste" title="Paste">Paste</button>
         <button data-key="esc" title="Escape">ESC</button>
         <button data-key="up" title="Up Arrow">↑</button>
         <button data-key="down" title="Down Arrow">↓</button>
@@ -904,6 +905,22 @@
       toolbar.addEventListener('click', (e) => {
         const button = e.target.closest('button');
         if (!button) return;
+
+        if (button.dataset.action === 'paste') {
+          navigator.clipboard.readText().then(text => {
+            if (text) {
+              const iframe = document.getElementById('terminal-iframe');
+              const term = iframe.contentWindow.term;
+              if (term && typeof term.input === 'function') {
+                term.input(text, true);
+              }
+            }
+          }).catch(err => {
+            console.warn('Clipboard read failed:', err);
+          });
+          e.preventDefault();
+          return;
+        }
 
         let sequence = null;
         if (button.dataset.key) {

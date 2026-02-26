@@ -335,49 +335,12 @@ chmod +x "$SCRIPT_DIR/claude-ttyd-session"
 ln -sf "$SCRIPT_DIR/claude-ttyd-session" "$HOME/.local/bin/claude-ttyd-session"
 print_success "Created: claude-ttyd-session wrapper"
 
-# Create ttyd launchd plist
-print_info "Creating ttyd service..."
-cat > "$HOME/Library/LaunchAgents/com.ttyd.claude.plist" << EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.ttyd.claude</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>$(which ttyd)</string>
-        <string>--writable</string>
-        <string>--port</string>
-        <string>7682</string>
-        <string>--interface</string>
-        <string>lo0</string>
-        <string>--ping-interval</string>
-        <string>30</string>
-        <string>--max-clients</string>
-        <string>0</string>
-        <string>--url-arg</string>
-        <string>--client-option</string>
-        <string>scrollback=10000</string>
-        <string>--base-path</string>
-        <string>/terminal</string>
-        <string>$HOME/.local/bin/claude-ttyd-session</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
-    <key>WorkingDirectory</key>
-    <string>$USER_HOME</string>
-    <key>StandardOutPath</key>
-    <string>$USER_HOME/Library/Logs/ttyd-claude.log</string>
-    <key>StandardErrorPath</key>
-    <string>$USER_HOME/Library/Logs/ttyd-claude.error.log</string>
-</dict>
-</plist>
-EOF
-print_success "Created: ~/Library/LaunchAgents/com.ttyd.claude.plist"
+# Remove legacy shared ttyd plist if present (ttyd is now managed per-session by auth-proxy)
+if [ -f "$HOME/Library/LaunchAgents/com.ttyd.claude.plist" ]; then
+    launchctl unload "$HOME/Library/LaunchAgents/com.ttyd.claude.plist" 2>/dev/null || true
+    rm -f "$HOME/Library/LaunchAgents/com.ttyd.claude.plist"
+    print_success "Removed legacy shared ttyd service plist"
+fi
 
 # Create auth-proxy launchd plist
 print_info "Creating auth-proxy service..."
@@ -481,7 +444,11 @@ print_info "Creating start.sh..."
 cat > "$SCRIPT_DIR/start.sh" << 'EOF'
 #!/bin/bash
 echo "Starting Claude Code web services..."
-launchctl load ~/Library/LaunchAgents/com.ttyd.claude.plist 2>/dev/null || echo "ttyd already loaded"
+# Unload legacy shared ttyd plist if present (ttyd is now managed per-session by auth-proxy)
+if launchctl list | grep -q 'com.ttyd.claude'; then
+  launchctl unload ~/Library/LaunchAgents/com.ttyd.claude.plist 2>/dev/null || true
+  echo "Unloaded legacy shared ttyd service"
+fi
 launchctl load ~/Library/LaunchAgents/com.authproxy.claude.plist 2>/dev/null || echo "auth-proxy already loaded"
 if [ -f ~/Library/LaunchAgents/com.cloudflared.tunnel.plist ]; then
   launchctl load ~/Library/LaunchAgents/com.cloudflared.tunnel.plist 2>/dev/null || echo "cloudflared already loaded"
@@ -489,10 +456,9 @@ fi
 echo "Services started!"
 echo ""
 echo "Check status with:"
-echo "  launchctl list | grep -E 'ttyd|authproxy|cloudflared'"
+echo "  launchctl list | grep -E 'authproxy|cloudflared'"
 echo ""
 echo "View logs:"
-echo "  tail -f ~/Library/Logs/ttyd-claude.log"
 echo "  tail -f ~/Library/Logs/auth-proxy.log"
 if [ -f ~/Library/LaunchAgents/com.cloudflared.tunnel.plist ]; then
   echo "  tail -f ~/Library/Logs/cloudflared.log"
@@ -506,7 +472,8 @@ print_info "Creating stop.sh..."
 cat > "$SCRIPT_DIR/stop.sh" << 'EOF'
 #!/bin/bash
 echo "Stopping Claude Code web services..."
-launchctl unload ~/Library/LaunchAgents/com.ttyd.claude.plist 2>/dev/null || echo "ttyd not loaded"
+# Unload legacy shared ttyd plist if present
+launchctl unload ~/Library/LaunchAgents/com.ttyd.claude.plist 2>/dev/null || true
 launchctl unload ~/Library/LaunchAgents/com.authproxy.claude.plist 2>/dev/null || echo "auth-proxy not loaded"
 if [ -f ~/Library/LaunchAgents/com.cloudflared.tunnel.plist ]; then
   launchctl unload ~/Library/LaunchAgents/com.cloudflared.tunnel.plist 2>/dev/null || echo "cloudflared not loaded"
@@ -535,7 +502,6 @@ Tunnel ID: $TUNNEL_ID
 # Configuration Files:
 - Cloudflared config: ~/.cloudflared/config.yml
 - Cloudflared credentials: ~/.cloudflared/$TUNNEL_ID.json
-- ttyd service: ~/Library/LaunchAgents/com.ttyd.claude.plist
 - cloudflared service: ~/Library/LaunchAgents/com.cloudflared.tunnel.plist
 
 # Management:
@@ -555,7 +521,6 @@ Username: $WEB_USERNAME
 Password: [shown during setup - not saved for security]
 
 # Configuration Files:
-- ttyd service: ~/Library/LaunchAgents/com.ttyd.claude.plist
 - auth-proxy service: ~/Library/LaunchAgents/com.authproxy.claude.plist
 
 # Management:
@@ -573,7 +538,6 @@ print_header "Step 6: Starting Services"
 
 # Stop any already-running instances to avoid EADDRINUSE on re-runs
 print_info "Stopping any existing services..."
-launchctl unload "$HOME/Library/LaunchAgents/com.ttyd.claude.plist" 2>/dev/null || true
 launchctl unload "$HOME/Library/LaunchAgents/com.authproxy.claude.plist" 2>/dev/null || true
 if [[ "$USE_CLOUDFLARE" == true ]]; then
     launchctl unload "$HOME/Library/LaunchAgents/com.cloudflared.tunnel.plist" 2>/dev/null || true
@@ -584,7 +548,6 @@ lsof -ti :7681 2>/dev/null | xargs kill -9 2>/dev/null || true
 sleep 2
 
 print_info "Loading services..."
-launchctl load "$HOME/Library/LaunchAgents/com.ttyd.claude.plist"
 launchctl load "$HOME/Library/LaunchAgents/com.authproxy.claude.plist"
 if [[ "$USE_CLOUDFLARE" == true ]]; then
     launchctl load "$HOME/Library/LaunchAgents/com.cloudflared.tunnel.plist"
@@ -595,14 +558,7 @@ sleep 3
 # Verify services — check for a real PID (column 1), not just presence in the list
 service_pid() { launchctl list | awk -v svc="$1" '$3 == svc && $1 ~ /^[0-9]+$/ {print $1}'; }
 
-TTYD_PID=$(service_pid "com.ttyd.claude")
 AUTHPROXY_PID=$(service_pid "com.authproxy.claude")
-
-if [[ -n "$TTYD_PID" ]]; then
-    print_success "ttyd service running (PID $TTYD_PID)"
-else
-    print_error "ttyd service failed to start — check ~/Library/Logs/ttyd-claude.error.log"
-fi
 
 if [[ -n "$AUTHPROXY_PID" ]]; then
     print_success "auth-proxy service running (PID $AUTHPROXY_PID)"
@@ -654,7 +610,7 @@ if [[ "$USE_CLOUDFLARE" == true ]]; then
     echo "  4. Start using Claude Code from anywhere!"
     echo ""
     echo "Logs:"
-    echo "  ttyd: ~/Library/Logs/ttyd-claude.log"
+    echo "  auth-proxy: ~/Library/Logs/auth-proxy.log"
     echo "  cloudflared: ~/Library/Logs/cloudflared.log"
 else
     echo -e "${GREEN}✓ Claude Code is now accessible locally!${NC}"
@@ -671,7 +627,7 @@ else
     echo "  3. Start using Claude Code!"
     echo ""
     echo "Logs:"
-    echo "  ttyd: ~/Library/Logs/ttyd-claude.log"
+    echo "  auth-proxy: ~/Library/Logs/auth-proxy.log"
 fi
 echo ""
 echo "Management commands:"

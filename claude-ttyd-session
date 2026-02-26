@@ -11,8 +11,13 @@ elif [ -f "$HOME/.bash_profile" ]; then
     source "$HOME/.bash_profile"
 fi
 
-# Validate tool command (only alphanumeric, hyphens, underscores allowed)
-if ! echo "$TOOL_CMD" | grep -qE '^[a-zA-Z0-9_-]+$'; then
+# Map 'shell' to actual shell binary
+if [ "$TOOL_CMD" = "shell" ]; then
+    TOOL_CMD="${SHELL:-/bin/bash}"
+fi
+
+# Validate tool command (only alphanumeric, hyphens, underscores, slashes, dots allowed)
+if ! echo "$TOOL_CMD" | grep -qE '^[a-zA-Z0-9_/.-]+$'; then
     echo "Error: Invalid tool command '$TOOL_CMD'"
     exit 1
 fi

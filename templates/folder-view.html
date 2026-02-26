@@ -705,13 +705,7 @@
     }
 
     function buildIframeSrc(session) {
-      var socketName = session.type === 'shell'
-        ? 'shell-' + session.id
-        : (session.tool || 'claude') + '-' + session.id;
-      var toolCommand = session.type === 'shell' ? 'shell' : (session.tool || 'claude');
-      return '/terminal/?arg=' + encodeURIComponent(socketName)
-        + '&arg=' + encodeURIComponent(FOLDER_PATH)
-        + '&arg=' + encodeURIComponent(toolCommand);
+      return '/terminal/' + encodeURIComponent(session.id) + '/';
     }
 
     function getBadgeLabel(session) {
