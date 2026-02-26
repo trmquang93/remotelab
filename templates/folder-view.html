@@ -637,6 +637,7 @@
 
       <!-- Mobile Keyboard Toolbar -->
       <div class="mobile-keyboard-toolbar">
+        <button data-action="paste-image" title="Paste Image">Img</button>
         <button data-key="esc" title="Escape">ESC</button>
         <button data-key="up" title="Up Arrow">&uarr;</button>
         <button data-key="down" title="Down Arrow">&darr;</button>
@@ -1669,12 +1670,31 @@
               }
               return true;
             });
+
+            // Listen for paste events on iframe document to catch images (works in Safari)
+            var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+            iframeDoc.addEventListener('paste', function(e) {
+              var items = e.clipboardData && e.clipboardData.items;
+              if (!items) return;
+              for (var i = 0; i < items.length; i++) {
+                if (items[i].type.startsWith('image/')) {
+                  e.preventDefault();
+                  e.stopImmediatePropagation();
+                  if (window.parent._clipboardImageUpload) {
+                    window.parent._clipboardImageUpload(items[i].getAsFile(), term);
+                  }
+                  return;
+                }
+              }
+            }, true);
           } catch (err) { setTimeout(tryAttach, 500); }
         }
 
         iframe.addEventListener('load', function() {
           setTimeout(tryAttach, 1000);
         });
+        // Also try immediately in case iframe is already loaded
+        setTimeout(tryAttach, 500);
       }
 
       // Observe new iframes added to terminal-panel
@@ -1739,6 +1759,77 @@
       }
 
       fetchDiff();
+    })();
+
+    // Clipboard image paste interception
+    (function() {
+      function blobToBase64(blob) {
+        return new Promise(function(resolve) {
+          var reader = new FileReader();
+          reader.onloadend = function() { resolve(reader.result); };
+          reader.readAsDataURL(blob);
+        });
+      }
+
+      function showToast(msg, isError) {
+        var el = document.createElement('div');
+        el.textContent = msg;
+        el.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);' +
+          'background:' + (isError ? '#ff0000' : '#00ff41') + ';color:#0a0a0a;' +
+          'padding:6px 16px;font-family:JetBrains Mono,monospace;font-size:12px;' +
+          'z-index:99999;border-radius:2px;';
+        document.body.appendChild(el);
+        setTimeout(function() { el.remove(); }, 2000);
+      }
+
+      function uploadAndPasteImage(blob, term) {
+        showToast('Uploading image...');
+        blobToBase64(blob).then(function(base64) {
+          return fetch('/api/clipboard-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: base64 })
+          });
+        }).then(function(res) {
+          if (!res.ok) throw new Error('Upload failed');
+          if (term && typeof term.input === 'function') {
+            term.input('\x1b[200~\x1b[201~', true);
+          }
+          showToast('Image pasted');
+        }).catch(function(err) {
+          console.error('Image paste failed:', err);
+          showToast('Image paste failed', true);
+        });
+      }
+
+      // Expose upload function for iframe paste handlers
+      window._clipboardImageUpload = uploadAndPasteImage;
+
+      // Mobile "Img" button handler -- uses async clipboard API (may not work in Safari)
+      var toolbar = document.querySelector('.mobile-keyboard-toolbar');
+      if (toolbar) {
+        toolbar.addEventListener('click', function(e) {
+          var btn = e.target.closest('[data-action="paste-image"]');
+          if (!btn) return;
+          e.preventDefault();
+          var iframe = document.getElementById('terminal-iframe');
+          var term = iframe && iframe.contentWindow && iframe.contentWindow.term;
+          if (navigator.clipboard && navigator.clipboard.read) {
+            navigator.clipboard.read().then(function(items) {
+              for (var j = 0; j < items.length; j++) {
+                var imgType = items[j].types.find(function(t) { return t.startsWith('image/'); });
+                if (imgType) {
+                  items[j].getType(imgType).then(function(blob) { uploadAndPasteImage(blob, term); });
+                  return;
+                }
+              }
+              showToast('No image in clipboard', true);
+            }).catch(function() { showToast('Clipboard access denied', true); });
+          } else {
+            showToast('Clipboard API not available', true);
+          }
+        });
+      }
     })();
   </script>
 </body>

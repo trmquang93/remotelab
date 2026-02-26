@@ -580,6 +580,7 @@
       <!-- Mobile Keyboard Toolbar -->
       <div class="mobile-keyboard-toolbar">
         <button data-action="paste" title="Paste">Paste</button>
+        <button data-action="paste-image" title="Paste Image">Img</button>
         <button data-key="esc" title="Escape">ESC</button>
         <button data-key="up" title="Up Arrow">↑</button>
         <button data-key="down" title="Down Arrow">↓</button>
@@ -1438,10 +1439,99 @@
             }
             return true;
           });
+
+          // Listen for paste events on iframe document to catch images (works in Safari)
+          const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+          iframeDoc.addEventListener('paste', (e) => {
+            const items = e.clipboardData && e.clipboardData.items;
+            if (!items) return;
+            for (let i = 0; i < items.length; i++) {
+              if (items[i].type.startsWith('image/')) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                if (window._clipboardImageUpload) {
+                  window._clipboardImageUpload(items[i].getAsFile(), term);
+                }
+                return;
+              }
+            }
+          }, true);
         } catch (err) { setTimeout(attachHandler, 500); }
       }
 
       iframe.addEventListener('load', () => setTimeout(attachHandler, 1000));
+      // Also try immediately in case iframe is already loaded
+      setTimeout(attachHandler, 500);
+    })();
+
+    // Clipboard image paste interception
+    (function() {
+      function blobToBase64(blob) {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(blob);
+        });
+      }
+
+      function showToast(msg, isError) {
+        const el = document.createElement('div');
+        el.textContent = msg;
+        Object.assign(el.style, {
+          position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)',
+          background: isError ? '#ff0000' : '#00ff41', color: '#0a0a0a',
+          padding: '6px 16px', fontFamily: 'JetBrains Mono, monospace', fontSize: '12px',
+          zIndex: '99999', borderRadius: '2px'
+        });
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 2000);
+      }
+
+      async function uploadAndPasteImage(blob, term) {
+        showToast('Uploading image...');
+        try {
+          const base64 = await blobToBase64(blob);
+          const res = await fetch('/api/clipboard-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: base64 })
+          });
+          if (!res.ok) throw new Error('Upload failed');
+          if (term && typeof term.input === 'function') {
+            term.input('\x1b[200~\x1b[201~', true);
+          }
+          showToast('Image pasted');
+        } catch (err) {
+          console.error('Image paste failed:', err);
+          showToast('Image paste failed', true);
+        }
+      }
+
+      // Expose upload function for iframe paste handlers
+      window._clipboardImageUpload = uploadAndPasteImage;
+
+      // Mobile "Img" button handler
+      document.querySelector('.mobile-keyboard-toolbar').addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-action="paste-image"]');
+        if (!btn) return;
+        e.preventDefault();
+        const iframe = document.getElementById('terminal-iframe');
+        const term = iframe && iframe.contentWindow && iframe.contentWindow.term;
+        if (navigator.clipboard && navigator.clipboard.read) {
+          navigator.clipboard.read().then(items => {
+            for (const item of items) {
+              const imgType = item.types.find(t => t.startsWith('image/'));
+              if (imgType) {
+                item.getType(imgType).then(blob => uploadAndPasteImage(blob, term));
+                return;
+              }
+            }
+            showToast('No image in clipboard', true);
+          }).catch(() => showToast('Clipboard access denied', true));
+        } else {
+          showToast('Clipboard API not available', true);
+        }
+      });
     })();
 
     // Initial load
