@@ -157,40 +157,57 @@
       opacity: 0.8;
     }
 
-    .sessions-grid {
+    .folders-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
       gap: 20px;
       margin-bottom: 32px;
     }
 
-    .session-card {
+    .folder-card {
       background: var(--bg-dark);
       border: 2px solid var(--terminal-green);
       padding: 20px;
       position: relative;
       transition: all 0.2s;
+      cursor: pointer;
     }
 
-    .session-card:hover {
+    .folder-card:hover {
       box-shadow: 0 0 20px rgba(0, 255, 65, 0.4);
       transform: translateY(-2px);
     }
 
-    .session-header {
+    .folder-card-header {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       justify-content: space-between;
       margin-bottom: 12px;
     }
 
-    .session-name {
+    .folder-card-title {
       color: var(--terminal-cyan);
-      font-size: 16px;
+      font-size: 14px;
       font-weight: 700;
+      word-break: break-all;
       display: flex;
       align-items: center;
       gap: 8px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .folder-card-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .folder-tab-count {
+      color: var(--terminal-amber);
+      font-size: 12px;
+      opacity: 0.8;
     }
 
     .status-indicator {
@@ -198,6 +215,7 @@
       height: 8px;
       border-radius: 50%;
       display: inline-block;
+      flex-shrink: 0;
     }
 
     .status-active {
@@ -210,21 +228,7 @@
       background: rgba(255, 255, 255, 0.2);
     }
 
-    .session-folder {
-      color: var(--terminal-amber);
-      font-size: 12px;
-      margin-bottom: 12px;
-      word-break: break-all;
-      opacity: 0.8;
-    }
-
-    .session-meta {
-      font-size: 11px;
-      color: rgba(0, 255, 65, 0.5);
-      margin-bottom: 16px;
-    }
-
-    .session-actions {
+    .folder-card-actions {
       display: flex;
       gap: 8px;
     }
@@ -268,7 +272,7 @@
       box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
     }
 
-    .new-session {
+    .new-folder {
       background: var(--bg-dark);
       border: 2px solid var(--terminal-cyan);
       padding: 24px;
@@ -276,28 +280,12 @@
       box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
     }
 
-    .new-session h2 {
+    .new-folder h2 {
       color: var(--terminal-cyan);
       font-size: 18px;
       margin-bottom: 16px;
       text-transform: uppercase;
       letter-spacing: 1px;
-    }
-
-    .form-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr 2fr;
-      gap: 16px;
-      margin-bottom: 16px;
-    }
-
-    @media (max-width: 900px) {
-      .form-row {
-        grid-template-columns: 1fr 1fr;
-      }
-      .form-row .autocomplete-wrapper {
-        grid-column: 1 / -1;
-      }
     }
 
     label {
@@ -609,10 +597,7 @@
     }
 
     @media (max-width: 768px) {
-      .sessions-grid {
-        grid-template-columns: 1fr;
-      }
-      .form-row {
+      .folders-grid {
         grid-template-columns: 1fr;
       }
       .btn {
@@ -649,45 +634,6 @@
       h1 {
         font-size: 22px;
       }
-    }
-
-    select {
-      width: 100%;
-      padding: 12px 16px;
-      background: var(--bg-black);
-      border: 2px solid var(--terminal-green);
-      color: var(--terminal-cyan);
-      font-size: 14px;
-      font-family: 'JetBrains Mono', monospace;
-      transition: all 0.2s;
-      cursor: pointer;
-      appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2300ff41' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 14px center;
-      padding-right: 36px;
-    }
-
-    select:focus {
-      outline: none;
-      border-color: var(--terminal-cyan);
-      box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
-    }
-
-    select option:disabled {
-      color: rgba(0, 255, 65, 0.3);
-    }
-
-    .session-tool-badge {
-      display: inline-block;
-      padding: 1px 5px;
-      border: 1px solid var(--terminal-amber);
-      color: var(--terminal-amber);
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-left: 4px;
-      vertical-align: middle;
     }
 
     .tool-manager {
@@ -778,6 +724,28 @@
         grid-template-columns: 1fr 1fr;
       }
     }
+
+    .open-folder-row {
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+    }
+
+    .open-folder-row .autocomplete-wrapper {
+      flex: 1;
+    }
+
+    .open-folder-row .btn-primary {
+      white-space: nowrap;
+      height: fit-content;
+    }
+
+    @media (max-width: 768px) {
+      .open-folder-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
   </style>
 </head>
 <body>
@@ -786,7 +754,7 @@
       <div class="terminal-header">
         <span>AI Code Sessions // Session Manager</span>
         <div class="header-actions">
-          <span id="session-count" style="opacity: 0.7; font-size: 12px;">0 sessions</span>
+          <span id="folder-count" style="opacity: 0.7; font-size: 12px;">0 folders</span>
           <a href="/logout" class="logout-btn">Logout</a>
         </div>
       </div>
@@ -796,50 +764,30 @@
       </div>
     </div>
 
-    <div id="sessions-container"></div>
+    <div id="folders-container"></div>
 
-    <div class="new-session">
-      <h2>▶ Create New Session</h2>
-      <form id="new-session-form">
-        <div class="form-row">
-          <div>
-            <label for="session-name">Session Name</label>
-            <input
-              type="text"
-              id="session-name"
-              name="name"
-              required
-              placeholder="my-project"
-              autocomplete="off">
-          </div>
-          <div>
-            <label for="session-tool">Tool</label>
-            <select id="session-tool" name="tool">
-              <option value="claude">Loading...</option>
-            </select>
-          </div>
-          <div class="autocomplete-wrapper">
-            <label for="session-folder">Project Folder</label>
-            <div class="folder-input-row">
-              <div>
-                <input
-                  type="text"
-                  id="session-folder"
-                  name="folder"
-                  required
-                  placeholder="/path/to/project"
-                  autocomplete="off">
-              </div>
-              <button type="button" id="browse-btn" class="btn-browse">DIR</button>
+    <div class="new-folder">
+      <h2>▶ Open Folder</h2>
+      <div class="open-folder-row">
+        <div class="autocomplete-wrapper">
+          <label for="folder-path">Project Folder</label>
+          <div class="folder-input-row">
+            <div>
+              <input
+                type="text"
+                id="folder-path"
+                placeholder="/path/to/project"
+                autocomplete="off">
             </div>
-            <div id="autocomplete-dropdown" class="autocomplete-dropdown"></div>
-            <div id="browse-dropdown" class="browse-dropdown"></div>
+            <button type="button" id="browse-btn" class="btn-browse">DIR</button>
           </div>
+          <div id="autocomplete-dropdown" class="autocomplete-dropdown"></div>
+          <div id="browse-dropdown" class="browse-dropdown"></div>
         </div>
-        <button type="submit" class="btn btn-primary" style="width: 100%;">
-          ▶ Create & Open Session
+        <button type="button" id="open-folder-btn" class="btn btn-primary">
+          ▶ Open Folder
         </button>
-      </form>
+      </div>
     </div>
 
     <div class="tool-manager" id="tool-manager">
@@ -874,18 +822,18 @@
   </div>
 
   <script nonce="{{NONCE}}">
-    let sessions = [];
+    let folders = [];
     let tools = [];
 
-    async function loadSessions() {
+    async function loadFolders() {
       try {
-        const res = await fetch('/api/sessions');
+        const res = await fetch('/api/folders');
         const data = await res.json();
-        sessions = data.sessions;
-        renderSessions();
-        updateSessionCount();
+        folders = data.folders;
+        renderFolders();
+        updateFolderCount();
       } catch (err) {
-        console.error('Failed to load sessions:', err);
+        console.error('Failed to load folders:', err);
       }
     }
 
@@ -894,21 +842,10 @@
         const res = await fetch('/api/tools');
         const data = await res.json();
         tools = data.tools;
-        populateToolSelect(tools);
         renderToolsList(tools);
       } catch (err) {
         console.error('Failed to load tools:', err);
       }
-    }
-
-    function populateToolSelect(toolList) {
-      const select = document.getElementById('session-tool');
-      select.innerHTML = toolList.map(t =>
-        `<option value="${escapeHtml(t.id)}"${!t.available ? ' disabled' : ''}>${escapeHtml(t.name)}${!t.available ? ' (not installed)' : ''}</option>`
-      ).join('');
-      // Default to first available tool
-      const firstAvailable = toolList.find(t => t.available);
-      if (firstAvailable) select.value = firstAvailable.id;
     }
 
     function renderToolsList(toolList) {
@@ -974,52 +911,55 @@
       }
     }
 
-    function renderSessions() {
-      const container = document.getElementById('sessions-container');
+    function renderFolders() {
+      const container = document.getElementById('folders-container');
 
-      if (sessions.length === 0) {
+      if (folders.length === 0) {
         container.innerHTML = `
           <div class="empty-state">
             <div class="empty-state-icon">⚠</div>
-            <div class="empty-state-text">No active sessions</div>
-            <div class="empty-state-hint">Create your first Claude Code session below</div>
+            <div class="empty-state-text">No open folders</div>
+            <div class="empty-state-hint">Open a project folder below to get started</div>
           </div>
         `;
         return;
       }
 
-      container.innerHTML = '<div class="sessions-grid">' + sessions.map(session => `
-        <div class="session-card">
-          <div class="session-header">
-            <div class="session-name">
-              <span class="status-indicator ${session.active ? 'status-active' : 'status-inactive'}"></span>
-              ${escapeHtml(session.name)}
-              <span class="session-tool-badge">${escapeHtml(session.tool || 'claude')}</span>
+      container.innerHTML = '<div class="folders-grid">' + folders.map(f => {
+        const tabCount = f.sessions.length;
+        const tabLabel = tabCount === 1 ? '1 tab' : `${tabCount} tabs`;
+        const isActive = f.activeCount > 0;
+        return `
+          <div class="folder-card" data-folder="${escapeHtml(f.folder)}">
+            <div class="folder-card-header">
+              <div class="folder-card-title">
+                <span class="status-indicator ${isActive ? 'status-active' : 'status-inactive'}"></span>
+                ${escapeHtml(f.folder)}
+              </div>
+            </div>
+            <div class="folder-card-meta">
+              <span class="folder-tab-count">${tabLabel}</span>
+            </div>
+            <div class="folder-card-actions">
+              <a href="/folder/${encodeURIComponent(f.folder)}"
+                 class="btn btn-primary"
+                 style="flex: 1;"
+                 onclick="event.stopPropagation();">
+                ▶ Open
+              </a>
+              <button data-delete-folder="${escapeHtml(f.folder)}" class="btn btn-danger" onclick="event.stopPropagation();">
+                ✕ Delete
+              </button>
             </div>
           </div>
-          <div class="session-folder">${escapeHtml(session.folder)}</div>
-          <div class="session-meta">
-            ID: ${escapeHtml(session.tool || 'claude')}-${session.id} // Created: ${new Date(session.created).toLocaleString()}
-          </div>
-          <div class="session-actions">
-            <a href="/session/${session.id}"
-               target="_blank"
-               class="btn btn-primary"
-               style="flex: 1;">
-              ▶ Open
-            </a>
-            <button data-session-id="${session.id}" class="btn btn-danger">
-              ✕ Delete
-            </button>
-          </div>
-        </div>
-      `).join('') + '</div>';
+        `;
+      }).join('') + '</div>';
     }
 
-    function updateSessionCount() {
-      const count = sessions.length;
-      document.getElementById('session-count').textContent =
-        `${count} session${count !== 1 ? 's' : ''}`;
+    function updateFolderCount() {
+      const count = folders.length;
+      document.getElementById('folder-count').textContent =
+        `${count} folder${count !== 1 ? 's' : ''}`;
     }
 
     function escapeHtml(str) {
@@ -1028,34 +968,109 @@
       return div.innerHTML;
     }
 
-    async function deleteSession(id) {
-      if (!confirm('Delete this session? The session will be killed.')) {
+    async function deleteFolder(folder) {
+      if (!confirm(`Delete ALL sessions in "${folder}"? All sessions will be killed.`)) {
         return;
       }
 
       try {
-        const res = await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
-        if (res.ok) {
-          await loadSessions();
-        } else {
-          alert('Failed to delete session');
-        }
+        const targetFolder = folders.find(f => f.folder === folder);
+        if (!targetFolder) return;
+
+        const deletePromises = targetFolder.sessions.map(s =>
+          fetch(`/api/sessions/${s.id}`, { method: 'DELETE' })
+        );
+        await Promise.all(deletePromises);
+        await loadFolders();
       } catch (err) {
-        console.error('Delete failed:', err);
-        alert('Failed to delete session');
+        console.error('Delete folder failed:', err);
+        alert('Failed to delete folder sessions');
       }
     }
 
-    document.getElementById('sessions-container').addEventListener('click', function(e) {
-      const btn = e.target.closest('button[data-session-id]');
-      if (btn) {
-        deleteSession(btn.dataset.sessionId);
+    // Folder card click delegation
+    document.getElementById('folders-container').addEventListener('click', function(e) {
+      const deleteBtn = e.target.closest('button[data-delete-folder]');
+      if (deleteBtn) {
+        deleteFolder(deleteBtn.dataset.deleteFolder);
+        return;
+      }
+
+      const card = e.target.closest('.folder-card');
+      if (card) {
+        window.location.href = '/folder/' + encodeURIComponent(card.dataset.folder);
+      }
+    });
+
+    // Open folder button
+    document.getElementById('open-folder-btn').addEventListener('click', function() {
+      const folderPath = document.getElementById('folder-path').value.trim();
+      if (!folderPath) {
+        alert('Please enter a folder path');
+        return;
+      }
+      window.location.href = '/folder/' + encodeURIComponent(folderPath);
+    });
+
+    // Allow Enter key to open folder
+    document.getElementById('folder-path').addEventListener('keydown', function(e) {
+      const items = autocompleteDropdown.querySelectorAll('.autocomplete-item');
+
+      if (items.length > 0) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          highlightedIndex = Math.min(highlightedIndex + 1, items.length - 1);
+          updateHighlight(items);
+          return;
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          highlightedIndex = Math.max(highlightedIndex - 1, -1);
+          updateHighlight(items);
+          return;
+        } else if (e.key === 'Enter' && highlightedIndex >= 0 && highlightedIndex < items.length) {
+          e.preventDefault();
+          const path = items[highlightedIndex].dataset.path;
+          folderInput.value = path + '/';
+          autocompleteDropdown.classList.remove('show');
+          highlightedIndex = -1;
+
+          clearTimeout(autocompleteTimeout);
+          autocompleteTimeout = setTimeout(async () => {
+            try {
+              const res = await fetch(`/api/autocomplete?q=${encodeURIComponent(path + '/')}`);
+              const data = await res.json();
+              if (data.suggestions.length === 0) {
+                autocompleteDropdown.classList.remove('show');
+                return;
+              }
+              autocompleteDropdown.innerHTML = data.suggestions
+                .map(p => `<div class="autocomplete-item" data-path="${escapeHtml(p)}">${escapeHtml(p)}</div>`)
+                .join('');
+              autocompleteDropdown.classList.add('show');
+            } catch (err) {
+              console.error('Autocomplete failed:', err);
+            }
+          }, 50);
+          return;
+        } else if (e.key === 'Escape') {
+          autocompleteDropdown.classList.remove('show');
+          browseDropdown.classList.remove('show');
+          highlightedIndex = -1;
+          return;
+        } else {
+          highlightedIndex = -1;
+        }
+      }
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('open-folder-btn').click();
       }
     });
 
     // Autocomplete functionality
     let autocompleteTimeout;
-    const folderInput = document.getElementById('session-folder');
+    const folderInput = document.getElementById('folder-path');
     const autocompleteDropdown = document.getElementById('autocomplete-dropdown');
 
     folderInput.addEventListener('input', (e) => {
@@ -1090,11 +1105,9 @@
     autocompleteDropdown.addEventListener('click', (e) => {
       if (e.target.classList.contains('autocomplete-item')) {
         const path = e.target.dataset.path;
-        // Update input with trailing slash and re-trigger autocomplete for subdirectories
         folderInput.value = path + '/';
         autocompleteDropdown.classList.remove('show');
 
-        // Trigger new autocomplete for subdirectories
         clearTimeout(autocompleteTimeout);
         autocompleteTimeout = setTimeout(async () => {
           try {
@@ -1118,56 +1131,6 @@
     // Keyboard navigation for autocomplete
     let highlightedIndex = -1;
 
-    folderInput.addEventListener('keydown', (e) => {
-      const items = autocompleteDropdown.querySelectorAll('.autocomplete-item');
-      if (items.length === 0) return;
-
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        highlightedIndex = Math.min(highlightedIndex + 1, items.length - 1);
-        updateHighlight(items);
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        highlightedIndex = Math.max(highlightedIndex - 1, -1);
-        updateHighlight(items);
-      } else if (e.key === 'Enter') {
-        if (highlightedIndex >= 0 && highlightedIndex < items.length) {
-          e.preventDefault();
-          const path = items[highlightedIndex].dataset.path;
-          // Update input with trailing slash and re-trigger autocomplete for subdirectories
-          folderInput.value = path + '/';
-          autocompleteDropdown.classList.remove('show');
-          highlightedIndex = -1;
-
-          // Trigger new autocomplete for subdirectories
-          clearTimeout(autocompleteTimeout);
-          autocompleteTimeout = setTimeout(async () => {
-            try {
-              const res = await fetch(`/api/autocomplete?q=${encodeURIComponent(path + '/')}`);
-              const data = await res.json();
-              if (data.suggestions.length === 0) {
-                autocompleteDropdown.classList.remove('show');
-                return;
-              }
-              autocompleteDropdown.innerHTML = data.suggestions
-                .map(p => `<div class="autocomplete-item" data-path="${escapeHtml(p)}">${escapeHtml(p)}</div>`)
-                .join('');
-              autocompleteDropdown.classList.add('show');
-            } catch (err) {
-              console.error('Autocomplete failed:', err);
-            }
-          }, 50);
-        }
-      } else if (e.key === 'Escape') {
-        autocompleteDropdown.classList.remove('show');
-        browseDropdown.classList.remove('show');
-        highlightedIndex = -1;
-      } else {
-        // Reset highlight on any other key
-        highlightedIndex = -1;
-      }
-    });
-
     function updateHighlight(items) {
       items.forEach((item, index) => {
         if (index === highlightedIndex) {
@@ -1180,8 +1143,6 @@
     }
 
     document.addEventListener('click', (e) => {
-      // Only close if clicked element is still in DOM and is outside wrapper
-      // If target is detached (!isConnected), it means it was removed by a navigation action inside browse UI
       if (e.target.isConnected && !e.target.closest('.autocomplete-wrapper')) {
         autocompleteDropdown.classList.remove('show');
         browseDropdown.classList.remove('show');
@@ -1222,7 +1183,6 @@
       let breadcrumbs = '';
       let currentPath = '';
 
-      // Add root
       breadcrumbs += '<span class="breadcrumb-segment" data-path="/">/</span>';
 
       parts.forEach((part, index) => {
@@ -1260,7 +1220,6 @@
 
       browseDropdown.innerHTML = html;
 
-      // Attach event listeners
       const upBtn = document.getElementById('browse-up');
       const selectBtn = document.getElementById('browse-select');
 
@@ -1277,7 +1236,6 @@
         });
       }
 
-      // Handle hidden folders toggle
       const toggleHiddenBtn = document.getElementById('browse-toggle-hidden');
       if (toggleHiddenBtn) {
         toggleHiddenBtn.addEventListener('click', () => {
@@ -1286,7 +1244,6 @@
         });
       }
 
-      // Handle breadcrumb clicks
       const breadcrumbSegments = browseDropdown.querySelectorAll('.breadcrumb-segment');
       breadcrumbSegments.forEach(segment => {
         segment.addEventListener('click', () => {
@@ -1295,7 +1252,6 @@
         });
       });
 
-      // Handle folder item clicks (single click navigates)
       const items = browseDropdown.querySelectorAll('.browse-item');
       items.forEach(item => {
         item.addEventListener('click', () => {
@@ -1305,21 +1261,16 @@
       });
     }
 
-    // DIR button toggle
     browseBtn.addEventListener('click', () => {
       if (browseDropdown.classList.contains('show')) {
         browseDropdown.classList.remove('show');
       } else {
-        // Close autocomplete when opening browse
         autocompleteDropdown.classList.remove('show');
-
-        // Use current input value or default to home
         const startPath = folderInput.value.trim() || '~';
         loadBrowseDirectory(startPath);
       }
     });
 
-    // Close browse when typing in input (let autocomplete take over)
     folderInput.addEventListener('input', () => {
       browseDropdown.classList.remove('show');
     });
@@ -1335,44 +1286,8 @@
     // Add tool button
     document.getElementById('add-tool-btn').addEventListener('click', addCustomTool);
 
-    // New session form
-    document.getElementById('new-session-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const formData = new FormData(e.target);
-      const name = formData.get('name');
-      const folder = formData.get('folder');
-      const tool = formData.get('tool') || 'claude';
-
-      try {
-        const res = await fetch('/api/sessions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, folder, tool })
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          const session = data.session;
-
-          // Open the new session in a new tab
-          const url = `/session/${session.id}`;
-          window.open(url, '_blank');
-
-          // Reset form and reload sessions
-          e.target.reset();
-          await loadSessions();
-        } else {
-          const error = await res.json();
-          alert(error.error || 'Failed to create session');
-        }
-      } catch (err) {
-        console.error('Create failed:', err);
-        alert('Failed to create session');
-      }
-    });
-
-    // Load sessions and tools on page load
-    loadSessions();
+    // Load folders and tools on page load
+    loadFolders();
     loadTools();
   </script>
 </body>

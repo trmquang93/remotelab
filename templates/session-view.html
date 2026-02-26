@@ -446,7 +446,7 @@
 
     @media (max-width: 768px) {
       .scroll-bottom-btn {
-        bottom: 76px; /* Above mobile keyboard toolbar (60px height + 16px margin) */
+        bottom: 62px; /* Above mobile keyboard toolbar (~46px height + 16px margin) */
         right: 12px;
         width: 44px;
         height: 44px;
@@ -483,32 +483,35 @@
     @media (max-width: 768px) {
       .mobile-keyboard-toolbar {
         display: flex;
+        flex-wrap: nowrap;
         position: fixed;
         bottom: 0;
         left: 0;
         right: 0;
         background: var(--bg-dark);
-        border-top: 2px solid var(--terminal-green);
-        padding: 8px;
-        padding-bottom: max(8px, env(safe-area-inset-bottom));
-        gap: 8px;
+        border-top: 1px solid rgba(0, 255, 65, 0.2);
+        padding: 6px 8px;
+        padding-bottom: max(6px, env(safe-area-inset-bottom));
+        gap: 6px;
         z-index: 1000;
         overflow-x: auto;
         overflow-y: hidden;
-        justify-content: space-around;
         -webkit-overflow-scrolling: touch;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
       }
 
       .mobile-keyboard-toolbar button {
-        flex: 1;
-        min-width: 50px;
-        padding: 12px 8px;
-        background: var(--bg-black);
-        border: 2px solid var(--terminal-green);
+        flex-shrink: 0;
+        min-width: 36px;
+        padding: 6px 8px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(0, 255, 65, 0.25);
+        border-radius: 6px;
         color: var(--terminal-green);
-        font-size: 18px;
+        font-size: 13px;
         cursor: pointer;
-        transition: all 0.1s;
+        transition: background 0.1s, transform 0.1s;
         font-family: 'JetBrains Mono', monospace;
         white-space: nowrap;
         user-select: none;
@@ -516,14 +519,14 @@
       }
 
       .mobile-keyboard-toolbar button:active {
-        background: var(--terminal-green);
-        color: var(--bg-black);
-        transform: scale(0.95);
+        background: rgba(0, 255, 65, 0.2);
+        color: var(--terminal-green);
+        transform: scale(0.92);
       }
 
       /* Adjust main container for toolbar space */
       .main-container {
-        height: calc(100vh - 50px - 60px); /* top toolbar + bottom toolbar */
+        height: calc(100vh - 50px - 46px); /* top toolbar + bottom toolbar */
       }
     }
     /* Mobile keyboard toolbar - END */
@@ -539,6 +542,7 @@
       <span class="session-folder">{{SESSION_FOLDER_HTML}}</span>
     </div>
     <div class="toolbar-actions">
+      <a href="/folder/{{SESSION_FOLDER_URL}}" class="toolbar-btn">Folder</a>
       <button id="refresh-btn" class="toolbar-btn">Refresh</button>
       <button id="auto-refresh-btn" class="toolbar-btn">Auto</button>
       <button id="collapse-btn" class="toolbar-btn">Collapse</button>
@@ -583,6 +587,16 @@
         <button data-key="tab" title="Tab">⇥</button>
         <button data-key="shift-tab" title="Shift+Tab">⇤</button>
         <button data-key="shift-enter" title="Shift+Enter">⏎</button>
+        <button data-char="1" title="1">1</button>
+        <button data-char="2" title="2">2</button>
+        <button data-char="3" title="3">3</button>
+        <button data-char="4" title="4">4</button>
+        <button data-char="5" title="5">5</button>
+        <button data-char="6" title="6">6</button>
+        <button data-char="7" title="7">7</button>
+        <button data-char="8" title="8">8</button>
+        <button data-char="9" title="9">9</button>
+        <button data-char="0" title="0">0</button>
       </div>
     </div>
 
@@ -889,10 +903,14 @@
 
       toolbar.addEventListener('click', (e) => {
         const button = e.target.closest('button');
-        if (!button || !button.dataset.key) return;
+        if (!button) return;
 
-        const key = button.dataset.key;
-        const sequence = keyMap[key];
+        let sequence = null;
+        if (button.dataset.key) {
+          sequence = keyMap[button.dataset.key];
+        } else if (button.dataset.char !== undefined) {
+          sequence = button.dataset.char;
+        }
         if (!sequence) return;
 
         try {
@@ -901,10 +919,6 @@
 
           if (term && typeof term.input === 'function') {
             term.input(sequence);
-            // Re-focus proxy so keyboard stays open after toolbar tap
-            if (typeof window.focusKeyboardProxy === 'function') {
-              window.focusKeyboardProxy();
-            }
           } else {
             console.warn('Terminal not ready yet');
           }
@@ -1018,11 +1032,6 @@
           if (term && typeof term.scrollToBottom === 'function') {
             term.scrollToBottom();
             wasAtBottom = true;
-            if (typeof window.focusKeyboardProxy === 'function') {
-              window.focusKeyboardProxy();
-            } else {
-              term.focus();
-            }
             scrollBtn.classList.remove('visible');
           }
         } catch (err) {
@@ -1319,6 +1328,16 @@
         let settleTimer = null;
 
         function applyLayout() {
+          // Save terminal scroll position before the container resize causes xterm.js
+          // to recalculate its viewport (which resets viewportY to 0).
+          let savedViewportY = null;
+          try {
+            const term = document.getElementById('terminal-iframe')?.contentWindow?.term;
+            if (term?.buffer?.active) {
+              savedViewportY = term.buffer.active.viewportY;
+            }
+          } catch (e) {}
+
           const vvHeight = window.visualViewport.height;
           const fullHeight = window.innerHeight; // stable with overlays-content
           const keyboardHeight = fullHeight - vvHeight;
@@ -1336,13 +1355,30 @@
             }
             if (scrollBottomBtn) {
               const toolbarH2 = keyboardToolbar ? keyboardToolbar.offsetHeight : 0;
-              scrollBottomBtn.style.bottom = (keyboardHeight + toolbarH2 + 8) + 'px';
+              scrollBottomBtn.style.bottom = '8px';
             }
           } else {
             // Revert to CSS-driven defaults
             mainContainer.style.height = '';
             if (keyboardToolbar) keyboardToolbar.style.bottom = '';
             if (scrollBottomBtn) scrollBottomBtn.style.bottom = '';
+          }
+
+          // Restore scroll position after the layout paint. xterm.js resets
+          // viewportY when the terminal dimensions change, so we compute the
+          // delta and apply it with scrollLines() once the frame has settled.
+          if (savedViewportY !== null) {
+            requestAnimationFrame(() => {
+              try {
+                const term = document.getElementById('terminal-iframe')?.contentWindow?.term;
+                if (term?.buffer?.active) {
+                  const delta = savedViewportY - term.buffer.active.viewportY;
+                  if (delta !== 0) {
+                    term.scrollLines(delta);
+                  }
+                }
+              } catch (e) {}
+            });
           }
         }
 
