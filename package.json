@@ -57,6 +57,11 @@
     "stop": "./stop.sh",
     "setup": "./setup.sh",
     "hash-password": "node hash-password.mjs",
+    "test": "vitest run",
     "prepublishOnly": "chmod +x cli.js setup.sh start.sh stop.sh claude-ttyd-session"
+  },
+  "devDependencies": {
+    "jsdom": "^28.1.0",
+    "vitest": "^4.0.18"
   }
 }

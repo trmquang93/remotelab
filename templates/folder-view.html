@@ -606,12 +606,6 @@
     }
     .drop-overlay.visible { display: flex; pointer-events: auto; }
 
-    .drag-catcher {
-      position: absolute;
-      inset: 0;
-      z-index: 10;
-      background: transparent;
-    }
   </style>
 </head>
 <body>
@@ -636,7 +630,6 @@
   <div class="main-container" id="main-container">
     <div class="drop-overlay" id="drop-overlay">Drop file to upload</div>
     <div class="terminal-panel" id="terminal-panel" style="position:relative;">
-      <div class="drag-catcher" id="drag-catcher"></div>
       <div class="empty-state" id="empty-state">
         <div>No sessions open</div>
         <div class="empty-hint">Click "+ New" to create a terminal session</div>
@@ -1297,6 +1290,20 @@
             return;
           }
 
+          // Buffer reset detection (compaction clears buffer, baseY drops)
+          if (baseY < lastBaseY) {
+            term.scrollToBottom();
+            lastBaseY = baseY;
+            wasAtBottom = true;
+            scrollBtn.classList.remove('visible');
+            return;
+          }
+
+          // Auto-scroll desktop when user was at bottom and new content arrived
+          if (baseY > lastBaseY && wasAtBottom) {
+            term.scrollToBottom();
+          }
+          lastBaseY = baseY;
           wasAtBottom = viewportY >= baseY;
 
           if (viewportY < baseY) {
@@ -1900,97 +1907,137 @@
         });
       }
 
-      // Drag-and-drop: use a transparent drag-catcher div over the iframe
-      var overlay = document.getElementById('drop-overlay');
-      var catcher = document.getElementById('drag-catcher');
-      var dragCounter = 0;
+      // Drag-and-drop file upload
+      //
+      // Problem: terminal iframes are separate browsing contexts that swallow drag
+      // events. The parent page never sees dragenter when dragging over an iframe.
+      //
+      // Solution: since iframes are same-origin (/terminal/...), we inject drag
+      // listeners into each iframe's contentWindow. When the iframe detects a drag,
+      // it posts a message to the parent. The parent then shows the overlay (which
+      // is position:fixed over everything with z-index:9999 and pointer-events:auto)
+      // so it can receive the drop.
+      //
+      // No drag-catcher div or mouse-event forwarding needed. Terminal mouse
+      // interaction is completely unaffected.
+      (function initDropZone() {
+        var overlay = document.getElementById('drop-overlay');
+        var hideTimer = null;
 
-      function showDropOverlay() {
-        dragCounter++;
-        overlay.classList.add('visible');
-      }
-      function hideDropOverlay() {
-        dragCounter--;
-        if (dragCounter <= 0) {
-          dragCounter = 0;
+        function showOverlay() {
+          overlay.classList.add('visible');
+          resetHideTimer();
+        }
+
+        function hideOverlay() {
           overlay.classList.remove('visible');
+          clearHideTimer();
         }
-      }
-      function resetDropOverlay() {
-        dragCounter = 0;
-        overlay.classList.remove('visible');
-      }
-      function handleDrop(e) {
-        e.preventDefault();
-        resetDropOverlay();
-        var files = e.dataTransfer && e.dataTransfer.files;
-        if (files) {
-          for (var i = 0; i < files.length; i++) {
-            uploadFile(files[i]);
+
+        function resetHideTimer() {
+          clearHideTimer();
+          // Safety: if no dragover for 300ms, the drag left without a clean dragleave
+          hideTimer = setTimeout(hideOverlay, 300);
+        }
+
+        function clearHideTimer() {
+          if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+        }
+
+        function handleDrop(e) {
+          e.preventDefault();
+          hideOverlay();
+          var files = e.dataTransfer && e.dataTransfer.files;
+          if (files) {
+            for (var i = 0; i < files.length; i++) { uploadFile(files[i]); }
           }
         }
-      }
 
-      // The drag-catcher is pointer-events:none by default.
-      // Forward mouse events from catcher to elements underneath so
-      // terminal interaction is unaffected. Drag events are caught here.
-      // We toggle pointer-events on/off: normally off (so iframe gets clicks),
-      // but we use a periodic check during external drags.
+        // --- Detect drags from non-iframe areas ---
+        document.addEventListener('dragenter', function(e) { e.preventDefault(); showOverlay(); });
+        document.addEventListener('dragover', function(e) { e.preventDefault(); });
+        document.addEventListener('drop', function(e) { e.preventDefault(); handleDrop(e); });
 
-      // Listen on document for areas outside the iframe
-      document.addEventListener('dragenter', function(e) {
-        e.preventDefault();
-        showDropOverlay();
-      });
-      document.addEventListener('dragover', function(e) {
-        e.preventDefault();
-      });
-      document.addEventListener('dragleave', function(e) {
-        e.preventDefault();
-        hideDropOverlay();
-      });
+        // --- Overlay handles its own dismissal ---
+        overlay.addEventListener('dragover', function(e) {
+          e.preventDefault();
+          resetHideTimer(); // drag still active, keep overlay visible
+        });
+        overlay.addEventListener('dragleave', function(e) {
+          e.preventDefault();
+          // Only hide when drag truly leaves the viewport (relatedTarget is null)
+          // not when crossing into a child text node inside the overlay
+          if (!e.relatedTarget) { hideOverlay(); }
+        });
+        overlay.addEventListener('drop', handleDrop);
 
-      // The catcher intercepts drags over the iframe area
-      catcher.addEventListener('dragenter', function(e) {
-        e.preventDefault();
-        showDropOverlay();
-      });
-      catcher.addEventListener('dragover', function(e) {
-        e.preventDefault();
-      });
-      catcher.addEventListener('dragleave', function(e) {
-        e.preventDefault();
-        hideDropOverlay();
-      });
-      catcher.addEventListener('drop', handleDrop);
+        // --- Detect drags from iframes via postMessage ---
+        window.addEventListener('message', function(e) {
+          if (!e.data || e.data.type !== 'iframe-drag') return;
+          if (e.data.event === 'dragenter') { showOverlay(); }
+          // Once overlay is visible, it handles its own dismissal
+        });
 
-      // Overlay catches the actual drop (it covers everything when visible)
-      overlay.addEventListener('drop', handleDrop);
-      document.addEventListener('drop', function(e) {
-        e.preventDefault();
-        resetDropOverlay();
-      });
+        // Inject drag listeners into each iframe once it loads.
+        // Retry on existing iframes in case they're already loaded.
+        function injectDragListeners(iframe) {
+          if (iframe._dragInjected) return;
+          try {
+            var win = iframe.contentWindow;
+            var doc = win && win.document;
+            if (!doc || !doc.body) return;
+            iframe._dragInjected = true;
 
-      // Forward mouse events through the catcher to the iframe beneath
-      ['mousedown', 'mouseup', 'click', 'dblclick', 'mousemove', 'contextmenu'].forEach(function(evtName) {
-        catcher.addEventListener(evtName, function(e) {
-          catcher.style.pointerEvents = 'none';
-          var el = document.elementFromPoint(e.clientX, e.clientY);
-          catcher.style.pointerEvents = '';
-          if (el && el !== catcher) {
-            el.dispatchEvent(new MouseEvent(evtName, e));
+            win.addEventListener('dragenter', function(e) {
+              e.preventDefault();
+              parent.postMessage({ type: 'iframe-drag', event: 'dragenter' }, '*');
+            });
+            win.addEventListener('dragover', function(e) {
+              e.preventDefault();
+            });
+            win.addEventListener('dragleave', function(e) {
+              e.preventDefault();
+              parent.postMessage({ type: 'iframe-drag', event: 'dragleave' }, '*');
+            });
+            win.addEventListener('drop', function(e) {
+              e.preventDefault();
+              parent.postMessage({ type: 'iframe-drag', event: 'drop' }, '*');
+            });
+          } catch (err) {
+            // Cross-origin iframe -- can't inject. Drag over it won't work.
           }
-          if (evtName === 'mousedown') {
-            // Keep catcher out of the way during active mouse interaction
-            catcher.style.pointerEvents = 'none';
+        }
+
+        // Inject into existing iframes
+        function injectAll() {
+          var iframes = document.querySelectorAll('.terminal-iframe');
+          for (var i = 0; i < iframes.length; i++) {
+            injectDragListeners(iframes[i]);
+          }
+        }
+        injectAll();
+
+        // Watch for new iframes being added to the DOM
+        var observer = new MutationObserver(function(mutations) {
+          for (var i = 0; i < mutations.length; i++) {
+            var nodes = mutations[i].addedNodes;
+            for (var j = 0; j < nodes.length; j++) {
+              if (nodes[j].tagName === 'IFRAME' && nodes[j].classList.contains('terminal-iframe')) {
+                nodes[j].addEventListener('load', function() {
+                  injectDragListeners(this);
+                });
+                // Also try immediately in case it's already loaded
+                injectDragListeners(nodes[j]);
+              }
+            }
           }
         });
-      });
+        observer.observe(document.getElementById('terminal-panel'), { childList: true });
 
-      // Re-enable catcher when mouse is released anywhere
-      document.addEventListener('mouseup', function() {
-        catcher.style.pointerEvents = '';
-      });
+        // Retry injection for iframes that may not have finished loading yet
+        setTimeout(injectAll, 1000);
+        setTimeout(injectAll, 3000);
+      })();
 
       // Mobile "Img" button handler -- uses async clipboard API (may not work in Safari)
       var toolbar = document.querySelector('.mobile-keyboard-toolbar');
