@@ -637,6 +637,124 @@
     }
     .drop-overlay.visible { display: flex; pointer-events: auto; }
 
+    /* Image preview panel */
+    .img-preview-panel {
+      display: none;
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      width: 320px;
+      max-height: 400px;
+      background: var(--bg-dark);
+      border: 1px solid rgba(0, 255, 65, 0.3);
+      border-radius: 6px;
+      z-index: 5000;
+      flex-direction: column;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    }
+
+    .img-preview-panel.visible { display: flex; }
+    .img-preview-panel.minimized .img-preview-body { display: none; }
+
+    .img-preview-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(0, 255, 65, 0.15);
+      font-size: 11px;
+      color: var(--terminal-cyan);
+      cursor: move;
+      user-select: none;
+      -webkit-user-select: none;
+      flex-shrink: 0;
+    }
+
+    .img-preview-header-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .img-preview-header-actions button {
+      background: transparent;
+      border: none;
+      color: rgba(0, 255, 65, 0.6);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 2px 4px;
+      line-height: 1;
+      font-family: 'JetBrains Mono', monospace;
+      transition: color 0.15s;
+    }
+
+    .img-preview-header-actions button:hover {
+      color: var(--terminal-green);
+    }
+
+    .img-preview-body {
+      padding: 8px;
+      overflow: auto;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 60px;
+    }
+
+    .img-preview-body img {
+      max-width: 100%;
+      max-height: 340px;
+      border-radius: 4px;
+      cursor: pointer;
+      image-rendering: auto;
+    }
+
+    .img-preview-body .img-preview-empty {
+      color: rgba(0, 255, 65, 0.3);
+      font-size: 11px;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .img-preview-filename {
+      padding: 4px 12px 8px;
+      font-size: 10px;
+      color: rgba(0, 255, 65, 0.4);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    /* Expanded overlay for clicking image */
+    .img-preview-expanded {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 6000;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .img-preview-expanded.visible { display: flex; }
+
+    .img-preview-expanded img {
+      max-width: 95vw;
+      max-height: 95vh;
+      border-radius: 4px;
+    }
+
+    @media (max-width: 768px) {
+      .img-preview-panel {
+        bottom: 52px;
+        right: 8px;
+        left: 8px;
+        width: auto;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -648,6 +766,7 @@
       <button id="auto-refresh-btn" class="toolbar-btn">Auto</button>
       <button id="collapse-btn" class="toolbar-btn">Collapse</button>
       <button id="upload-btn" class="toolbar-btn" title="Upload file to folder">Upload</button>
+      <button id="img-preview-btn" class="toolbar-btn" title="Toggle image preview panel">Img</button>
     </div>
   </div>
 
@@ -2149,6 +2268,178 @@
           }
         });
       }
+    })();
+  </script>
+
+  <!-- Image preview panel -->
+  <div class="img-preview-panel" id="img-preview-panel">
+    <div class="img-preview-header" id="img-preview-drag-handle">
+      <span>Image Preview</span>
+      <div class="img-preview-header-actions">
+        <button id="img-preview-minimize" title="Minimize">&minus;</button>
+        <button id="img-preview-close" title="Close">&times;</button>
+      </div>
+    </div>
+    <div class="img-preview-body" id="img-preview-body">
+      <div class="img-preview-empty">Waiting for image...</div>
+    </div>
+    <div class="img-preview-filename" id="img-preview-filename"></div>
+  </div>
+
+  <div class="img-preview-expanded" id="img-preview-expanded">
+    <img id="img-preview-expanded-img" src="" alt="Expanded preview">
+  </div>
+
+  <script nonce="{{NONCE}}">
+    (async function() {
+      const panel = document.getElementById('img-preview-panel');
+      const body = document.getElementById('img-preview-body');
+      const filenameEl = document.getElementById('img-preview-filename');
+      const toggleBtn = document.getElementById('img-preview-btn');
+      const minimizeBtn = document.getElementById('img-preview-minimize');
+      const closeBtn = document.getElementById('img-preview-close');
+      const expanded = document.getElementById('img-preview-expanded');
+      const expandedImg = document.getElementById('img-preview-expanded-img');
+      const dragHandle = document.getElementById('img-preview-drag-handle');
+
+      let eventSource = null;
+      let currentImgSrc = null;
+      const FOLDER_PATH_URL = encodeURIComponent('{{FOLDER_PATH_JS}}');
+
+      function showPanel() {
+        panel.classList.add('visible');
+        panel.classList.remove('minimized');
+        toggleBtn.classList.add('active');
+        connectSSE();
+        fetchLatest();
+      }
+
+      function hidePanel() {
+        panel.classList.remove('visible');
+        toggleBtn.classList.remove('active');
+        disconnectSSE();
+      }
+
+      async function configureHook(enable) {
+        const r = await fetch('/api/image-preview/hook', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ folder: '{{FOLDER_PATH_JS}}', enable: enable })
+        });
+        return r.json();
+      }
+
+      async function togglePanel() {
+        if (panel.classList.contains('visible')) {
+          try { await configureHook(false); } catch {}
+          hidePanel();
+        } else {
+          try {
+            await configureHook(true);
+            showPanel();
+          } catch {}
+        }
+      }
+
+      toggleBtn.addEventListener('click', togglePanel);
+
+      // Check hook status on page load and auto-show if enabled
+      try {
+        const r = await fetch('/api/image-preview/hook?folder=' + FOLDER_PATH_URL);
+        const data = await r.json();
+        if (data.enabled) showPanel();
+      } catch {}
+      closeBtn.addEventListener('click', hidePanel);
+
+      minimizeBtn.addEventListener('click', function() {
+        panel.classList.toggle('minimized');
+      });
+
+      // Expanded overlay
+      expanded.addEventListener('click', function() {
+        expanded.classList.remove('visible');
+      });
+
+      function displayImage(filePath) {
+        const src = '/api/image-preview/file?folder=' + FOLDER_PATH_URL + '&path=' + encodeURIComponent(filePath);
+        currentImgSrc = src;
+
+        const img = document.createElement('img');
+        img.src = src;
+        img.alt = filePath.split('/').pop();
+        img.addEventListener('click', function() {
+          expandedImg.src = src;
+          expanded.classList.add('visible');
+        });
+
+        body.replaceChildren(img);
+        filenameEl.textContent = filePath;
+
+        // Un-minimize when new image arrives
+        panel.classList.remove('minimized');
+      }
+
+      async function fetchLatest() {
+        try {
+          const r = await fetch('/api/image-preview/latest?folder=' + FOLDER_PATH_URL);
+          const data = await r.json();
+          if (data && data.filePath) displayImage(data.filePath);
+        } catch {}
+      }
+
+      function connectSSE() {
+        if (eventSource) return;
+        eventSource = new EventSource('/api/image-preview/events?folder=' + FOLDER_PATH_URL);
+        eventSource.addEventListener('message', function(e) {
+          try {
+            const data = JSON.parse(e.data);
+            if (data.filePath) {
+              displayImage(data.filePath);
+              // Auto-show panel if hidden
+              if (!panel.classList.contains('visible')) showPanel();
+            }
+          } catch {}
+        });
+        eventSource.addEventListener('error', function() {
+          disconnectSSE();
+          setTimeout(function() {
+            if (panel.classList.contains('visible')) connectSSE();
+          }, 3000);
+        });
+      }
+
+      function disconnectSSE() {
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
+      }
+
+      // Drag support for the panel header
+      (function() {
+        let dragging = false;
+        let offsetX = 0, offsetY = 0;
+
+        dragHandle.addEventListener('mousedown', function(e) {
+          if (e.target.tagName === 'BUTTON') return;
+          dragging = true;
+          offsetX = e.clientX - panel.getBoundingClientRect().left;
+          offsetY = e.clientY - panel.getBoundingClientRect().top;
+          e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', function(e) {
+          if (!dragging) return;
+          panel.style.left = (e.clientX - offsetX) + 'px';
+          panel.style.top = (e.clientY - offsetY) + 'px';
+          panel.style.right = 'auto';
+          panel.style.bottom = 'auto';
+        });
+
+        document.addEventListener('mouseup', function() {
+          dragging = false;
+        });
+      })();
     })();
   </script>
 </body>
