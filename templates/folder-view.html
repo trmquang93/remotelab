@@ -766,6 +766,7 @@
       <button id="auto-refresh-btn" class="toolbar-btn">Auto</button>
       <button id="collapse-btn" class="toolbar-btn">Collapse</button>
       <button id="upload-btn" class="toolbar-btn" title="Upload file to folder">Upload</button>
+      <button id="code-btn" class="toolbar-btn" title="Open VS Code in browser">Code</button>
       <button id="img-preview-btn" class="toolbar-btn" title="Toggle image preview panel">Img</button>
     </div>
   </div>
@@ -2110,6 +2111,63 @@
             }
           });
           input.click();
+        });
+      }
+
+      // Code button — launch code-server for this folder (auto-installs if missing)
+      var codeBtn = document.getElementById('code-btn');
+      if (codeBtn) {
+        function startCodeServer() {
+          codeBtn.disabled = true;
+          codeBtn.textContent = 'Starting...';
+          return fetch('/api/code-server/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ folder: FOLDER_PATH })
+          }).then(function(res) {
+            return res.json().then(function(data) { return { ok: res.ok, data: data }; });
+          }).then(function(result) {
+            if (!result.ok) throw new Error(result.data.error || 'Failed to start code-server');
+            window.open(result.data.url, '_blank');
+            showToast('code-server started on port ' + result.data.port);
+          }).finally(function() {
+            codeBtn.disabled = false;
+            codeBtn.textContent = 'Code';
+          });
+        }
+
+        function doInstallAndStart() {
+          codeBtn.disabled = true;
+          codeBtn.textContent = 'Installing...';
+          showToast('Installing code-server, this may take a minute...');
+          fetch('/api/code-server/install', { method: 'POST' })
+            .then(function(res) {
+              return res.json().then(function(data) { return { ok: res.ok, data: data }; });
+            }).then(function(result) {
+              if (!result.ok) throw new Error(result.data.error || 'Install failed');
+              showToast('code-server installed successfully');
+              return startCodeServer();
+            }).catch(function(err) {
+              showToast('Install failed: ' + err.message, true);
+              codeBtn.disabled = false;
+              codeBtn.textContent = 'Code';
+            });
+        }
+
+        codeBtn.addEventListener('click', function() {
+          fetch('/api/code-server/installed')
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+              if (data.installed) {
+                startCodeServer();
+              } else {
+                if (confirm('code-server is not installed. Install it now?')) {
+                  doInstallAndStart();
+                }
+              }
+            }).catch(function(err) {
+              showToast('Failed to check code-server status: ' + err.message, true);
+            });
         });
       }
 
