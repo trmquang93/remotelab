@@ -813,6 +813,7 @@
           forceTerminalRedraw(iframe);
           attachScrollCheck(iframe);
           attachLineFeedListener(iframe);
+          injectAutoReconnect(iframe);
         }, 1000);
       });
 
@@ -1269,6 +1270,55 @@
     });
 
     // ── Terminal Helpers ──
+
+    function injectAutoReconnect(iframe) {
+      try {
+        var doc = iframe.contentDocument || iframe.contentWindow.document;
+        if (!doc || !doc.body) return;
+
+        // ttyd's overlay is a plain div with inline styles and text like
+        // "Press ⏎ to Reconnect". It has position:absolute and font-size:xx-large.
+        // xterm.js listens for keys via its hidden textarea (.xterm-helper-textarea).
+        function findReconnectOverlay() {
+          var divs = doc.querySelectorAll('div[style*="position: absolute"][style*="font-size"]');
+          for (var i = 0; i < divs.length; i++) {
+            var text = divs[i].textContent || '';
+            if (text.indexOf('Reconnect') !== -1) return divs[i];
+          }
+          return null;
+        }
+
+        function dismissOverlay() {
+          var overlay = findReconnectOverlay();
+          if (!overlay) return false;
+
+          // Dispatch Enter on xterm's hidden textarea where terminal.onKey listens
+          var textarea = doc.querySelector('.xterm-helper-textarea');
+          if (textarea) {
+            textarea.focus();
+            var ev = new KeyboardEvent('keydown', {
+              key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true
+            });
+            textarea.dispatchEvent(ev);
+            return true;
+          }
+          return false;
+        }
+
+        // MutationObserver for immediate detection
+        var observer = new MutationObserver(function() {
+          setTimeout(function() { dismissOverlay(); }, 500);
+        });
+        observer.observe(doc.body, { childList: true, subtree: true });
+
+        // Polling fallback every 2s (catches overlays present before observer attached)
+        var pollId = setInterval(function() {
+          try { dismissOverlay(); } catch (e) { clearInterval(pollId); }
+        }, 2000);
+
+        iframe._autoReconnectPoll = pollId;
+      } catch (e) {}
+    }
 
     function forceTerminalRedraw(iframe) {
       try {
