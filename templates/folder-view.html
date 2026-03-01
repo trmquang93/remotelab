@@ -373,6 +373,37 @@
     .file-body { display: none; }
     .file-card:not(.collapsed) .file-body { display: block; }
 
+    .file-status-badge {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-left: 8px;
+      flex-shrink: 0;
+    }
+    .file-status-untracked {
+      background: rgba(0, 188, 212, 0.15);
+      color: #00bcd4;
+      border: 1px solid rgba(0, 188, 212, 0.3);
+    }
+    .file-status-new {
+      background: rgba(0, 255, 65, 0.15);
+      color: var(--terminal-green);
+      border: 1px solid rgba(0, 255, 65, 0.3);
+    }
+    .file-status-deleted {
+      background: rgba(255, 50, 50, 0.15);
+      color: var(--terminal-red);
+      border: 1px solid rgba(255, 50, 50, 0.3);
+    }
+    .file-status-renamed {
+      background: rgba(255, 193, 7, 0.15);
+      color: #ffc107;
+      border: 1px solid rgba(255, 193, 7, 0.3);
+    }
+
     .binary-notice {
       padding: 20px;
       text-align: center;
@@ -990,7 +1021,11 @@
         var fileId = 'file_' + Math.random().toString(36).substr(2, 9);
         return '<div class="file-card collapsed" id="' + fileId + '">' +
           '<div class="file-header" data-file-id="' + fileId + '">' +
-            '<div class="file-name">' + escapeHtml(file.path) + '</div>' +
+            '<div class="file-name">' + escapeHtml(file.path) +
+              (file.status && file.status !== 'modified'
+                ? '<span class="file-status-badge file-status-' + file.status + '">' + file.status + '</span>'
+                : '') +
+            '</div>' +
             '<div class="file-stats">' +
               '<span class="additions">+' + file.additions + '</span> / ' +
               '<span class="deletions">-' + file.deletions + '</span>' +
