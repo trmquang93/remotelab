@@ -2291,20 +2291,20 @@
   </div>
 
   <script nonce="{{NONCE}}">
-    (function() {
-      var panel = document.getElementById('img-preview-panel');
-      var body = document.getElementById('img-preview-body');
-      var filenameEl = document.getElementById('img-preview-filename');
-      var toggleBtn = document.getElementById('img-preview-btn');
-      var minimizeBtn = document.getElementById('img-preview-minimize');
-      var closeBtn = document.getElementById('img-preview-close');
-      var expanded = document.getElementById('img-preview-expanded');
-      var expandedImg = document.getElementById('img-preview-expanded-img');
-      var dragHandle = document.getElementById('img-preview-drag-handle');
+    (async function() {
+      const panel = document.getElementById('img-preview-panel');
+      const body = document.getElementById('img-preview-body');
+      const filenameEl = document.getElementById('img-preview-filename');
+      const toggleBtn = document.getElementById('img-preview-btn');
+      const minimizeBtn = document.getElementById('img-preview-minimize');
+      const closeBtn = document.getElementById('img-preview-close');
+      const expanded = document.getElementById('img-preview-expanded');
+      const expandedImg = document.getElementById('img-preview-expanded-img');
+      const dragHandle = document.getElementById('img-preview-drag-handle');
 
-      var eventSource = null;
-      var currentImgSrc = null;
-      var FOLDER_PATH_URL = encodeURIComponent('{{FOLDER_PATH_JS}}');
+      let eventSource = null;
+      let currentImgSrc = null;
+      const FOLDER_PATH_URL = encodeURIComponent('{{FOLDER_PATH_JS}}');
 
       function showPanel() {
         panel.classList.add('visible');
@@ -2320,34 +2320,35 @@
         disconnectSSE();
       }
 
-      function configureHook(enable) {
-        return fetch('/api/image-preview/hook', {
+      async function configureHook(enable) {
+        const r = await fetch('/api/image-preview/hook', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ folder: '{{FOLDER_PATH_JS}}', enable: enable })
-        }).then(function(r) { return r.json(); });
+        });
+        return r.json();
       }
 
-      function togglePanel() {
+      async function togglePanel() {
         if (panel.classList.contains('visible')) {
-          configureHook(false).catch(function() {});
+          try { await configureHook(false); } catch {}
           hidePanel();
         } else {
-          configureHook(true).then(function() {
+          try {
+            await configureHook(true);
             showPanel();
-          }).catch(function() {});
+          } catch {}
         }
       }
 
       toggleBtn.addEventListener('click', togglePanel);
 
       // Check hook status on page load and auto-show if enabled
-      fetch('/api/image-preview/hook?folder=' + FOLDER_PATH_URL)
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-          if (data.enabled) showPanel();
-        })
-        .catch(function() {});
+      try {
+        const r = await fetch('/api/image-preview/hook?folder=' + FOLDER_PATH_URL);
+        const data = await r.json();
+        if (data.enabled) showPanel();
+      } catch {}
       closeBtn.addEventListener('click', hidePanel);
 
       minimizeBtn.addEventListener('click', function() {
@@ -2360,10 +2361,10 @@
       });
 
       function displayImage(filePath) {
-        var src = '/api/image-preview/file?folder=' + FOLDER_PATH_URL + '&path=' + encodeURIComponent(filePath);
+        const src = '/api/image-preview/file?folder=' + FOLDER_PATH_URL + '&path=' + encodeURIComponent(filePath);
         currentImgSrc = src;
 
-        var img = document.createElement('img');
+        const img = document.createElement('img');
         img.src = src;
         img.alt = filePath.split('/').pop();
         img.addEventListener('click', function() {
@@ -2371,21 +2372,19 @@
           expanded.classList.add('visible');
         });
 
-        body.innerHTML = '';
-        body.appendChild(img);
+        body.replaceChildren(img);
         filenameEl.textContent = filePath;
 
         // Un-minimize when new image arrives
         panel.classList.remove('minimized');
       }
 
-      function fetchLatest() {
-        fetch('/api/image-preview/latest?folder=' + FOLDER_PATH_URL)
-          .then(function(r) { return r.json(); })
-          .then(function(data) {
-            if (data && data.filePath) displayImage(data.filePath);
-          })
-          .catch(function() {});
+      async function fetchLatest() {
+        try {
+          const r = await fetch('/api/image-preview/latest?folder=' + FOLDER_PATH_URL);
+          const data = await r.json();
+          if (data && data.filePath) displayImage(data.filePath);
+        } catch {}
       }
 
       function connectSSE() {
@@ -2393,13 +2392,13 @@
         eventSource = new EventSource('/api/image-preview/events?folder=' + FOLDER_PATH_URL);
         eventSource.addEventListener('message', function(e) {
           try {
-            var data = JSON.parse(e.data);
+            const data = JSON.parse(e.data);
             if (data.filePath) {
               displayImage(data.filePath);
               // Auto-show panel if hidden
               if (!panel.classList.contains('visible')) showPanel();
             }
-          } catch (err) {}
+          } catch {}
         });
         eventSource.addEventListener('error', function() {
           disconnectSSE();
@@ -2418,8 +2417,8 @@
 
       // Drag support for the panel header
       (function() {
-        var dragging = false;
-        var offsetX = 0, offsetY = 0;
+        let dragging = false;
+        let offsetX = 0, offsetY = 0;
 
         dragHandle.addEventListener('mousedown', function(e) {
           if (e.target.tagName === 'BUTTON') return;
