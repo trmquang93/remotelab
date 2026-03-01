@@ -1843,14 +1843,14 @@
 
           document.body.classList.toggle('keyboard-open', keyboardOpen);
 
+          var toolbarH = keyboardToolbar ? keyboardToolbar.offsetHeight : 0;
+          var available = vvHeight - topToolbarHeight - toolbarH;
+          mainContainer.style.height = available + 'px';
+
           if (keyboardOpen) {
-            var toolbarH = keyboardToolbar ? keyboardToolbar.offsetHeight : 0;
-            var available = vvHeight - topToolbarHeight - toolbarH;
-            mainContainer.style.height = available + 'px';
             if (keyboardToolbar) keyboardToolbar.style.bottom = keyboardHeight + 'px';
             if (scrollBottomBtn) scrollBottomBtn.style.bottom = '8px';
           } else {
-            mainContainer.style.height = '';
             if (keyboardToolbar) keyboardToolbar.style.bottom = '';
             if (scrollBottomBtn) scrollBottomBtn.style.bottom = '';
           }
@@ -1884,6 +1884,8 @@
 
         window.visualViewport.addEventListener('resize', scheduleLayout);
         window.visualViewport.addEventListener('scroll', scheduleLayout);
+
+        applyLayout();
       }
     })();
 
