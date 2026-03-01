@@ -34,6 +34,29 @@ Paste images directly from your clipboard into the remote terminal session. Copy
 
 > Copy an image on any device, switch to your remote terminal tab, and paste. The image appears inline in the conversation — no file upload dialog, no manual path entry.
 
+## Image Preview
+
+When Claude Code reads an image file (via the `Read` tool), the image appears in real time in a floating preview panel in your browser — no need to download or open files manually.
+
+### How to use
+
+1. Open a **folder view** in the dashboard (click the folder path link for any session)
+2. Click the **Img** button in the toolbar to enable image preview
+3. Use Claude Code normally — whenever it reads an image (`.png`, `.jpg`, `.gif`, `.webp`, `.svg`, `.bmp`, `.ico`), it appears in the preview panel
+4. Click the image to expand it full-screen; click again to dismiss
+5. The panel is **draggable** (grab the header) and **minimizable**
+6. Click **Img** again to disable (removes the hook from the project)
+
+### How it works
+
+Enabling image preview writes a [Claude Code hook](https://docs.anthropic.com/en/docs/claude-code/hooks) into your project's `.claude/settings.json`. The hook fires after every `Read` tool use, checks if the file is an image, and notifies the browser via Server-Sent Events (SSE).
+
+```
+Claude Code reads image → PostToolUse hook fires → hook script POSTs to auth-proxy → SSE broadcast → browser panel updates
+```
+
+The hook is **async** (non-blocking) and **project-scoped** — it only affects the project folder where you enabled it. Disabling the toggle removes the hook entry from `settings.json`.
+
 ## Architecture
 
 ```
