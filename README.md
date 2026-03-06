@@ -1,7 +1,7 @@
 # remotelab
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Platform: macOS](https://img.shields.io/badge/Platform-macOS-lightgrey?logo=apple)](https://github.com/trmquang93/remotelab)
+[![Platform: macOS%20%7C%20Linux](https://img.shields.io/badge/Platform-macOS%20%7C%20Linux-lightgrey)](https://github.com/trmquang93/remotelab)
 [![Node.js 18+](https://img.shields.io/badge/Node.js-18%2B-green?logo=node.js&logoColor=white)](https://nodejs.org)
 [![npm](https://img.shields.io/npm/v/@trmquang93/remotelab?logo=npm)](https://www.npmjs.com/package/@trmquang93/remotelab)
 [![GitHub stars](https://img.shields.io/github/stars/trmquang93/remotelab?style=social)](https://github.com/trmquang93/remotelab/stargazers)
@@ -82,8 +82,8 @@ Three services:
 
 ## Prerequisites
 
-- **macOS** (Linux/systemd support is a [welcome contribution](CONTRIBUTING.md))
-- **Homebrew** — [brew.sh](https://brew.sh)
+- **macOS** or **Linux** with `systemd --user`
+- **Homebrew** on macOS, or a supported Linux distro package manager/sudo environment
 - **Node.js 18+**
 - **At least one supported CLI tool** installed and authenticated — e.g. Claude Code (`npm install -g @anthropic-ai/claude-code && claude login`), GitHub Copilot, Cline, or any custom CLI tool
 - **A domain managed by Cloudflare** — a cheap domain ($1–12/year) on the free Cloudflare plan is sufficient
@@ -108,7 +108,12 @@ npx @trmquang93/remotelab setup
 ```bash
 git clone https://github.com/trmquang93/remotelab.git
 cd remotelab
+
+# macOS
 ./setup.sh
+
+# Linux
+./setup-linux.sh
 ```
 
 ## Quick Start
@@ -123,10 +128,10 @@ The setup script will:
 1. Prompt for your domain and subdomain
 2. Prompt for a login username (default: `claude`)
 3. Generate a secure random password
-4. Install missing dependencies via Homebrew
+4. Check platform dependencies and auto-install missing Linux tools (`node`, `dtach`, `ttyd`, `claude`, `codex`, and `cloudflared` in tunnel mode)
 5. Authenticate with Cloudflare and create a tunnel
 6. Configure DNS in Cloudflare
-7. Generate LaunchAgent plists and start all services
+7. Generate LaunchAgents on macOS or systemd user units on Linux
 8. Display your access URL and credentials
 
 After setup, open `https://yoursubdomain.yourdomain.com` in any browser.
@@ -155,14 +160,25 @@ remotelab stop
 Or if installed from source:
 
 ```bash
+# macOS
 ./start.sh
 ./stop.sh
+
+# Linux
+./start-linux.sh
+./stop-linux.sh
 ```
 
 ### Check status
 
 ```bash
+# macOS
 launchctl list | grep -E 'ttyd|authproxy|cloudflared'
+
+# Linux
+systemctl --user status remotelab-auth-proxy.service
+systemctl --user status remotelab-cloudflared.service
+
 lsof -i :7681   # auth-proxy
 lsof -i :7682   # ttyd
 ```
@@ -170,9 +186,14 @@ lsof -i :7682   # ttyd
 ### View logs
 
 ```bash
+# macOS
 tail -f ~/Library/Logs/auth-proxy.log
 tail -f ~/Library/Logs/ttyd-claude.log
 tail -f ~/Library/Logs/cloudflared.log
+
+# Linux
+journalctl --user -u remotelab-auth-proxy.service -f
+journalctl --user -u remotelab-cloudflared.service -f
 ```
 
 ### Change password
@@ -205,13 +226,15 @@ Navigate to your HTTPS URL after login. From the dashboard you can:
 | `auth-proxy.mjs` | Authentication proxy server |
 | `claude-ttyd-session` | dtach wrapper script |
 | `hash-password.mjs` | Password hashing utility |
-| `setup.sh` / `start.sh` / `stop.sh` | Service management scripts |
+| `setup.sh` / `start.sh` / `stop.sh` | macOS LaunchAgent management scripts |
+| `setup-linux.sh` / `start-linux.sh` / `stop-linux.sh` | Linux systemd user-service management scripts |
 | `~/.config/claude-web/auth.json` | Hashed credentials |
 | `~/.config/claude-web/sessions.json` | Session metadata |
 | `~/.config/claude-web/sockets/` | dtach socket files |
-| `~/Library/LaunchAgents/com.authproxy.claude.plist` | auth-proxy service |
-| `~/Library/LaunchAgents/com.ttyd.claude.plist` | ttyd service |
-| `~/Library/LaunchAgents/com.cloudflared.tunnel.plist` | Cloudflare tunnel service |
+| `~/Library/LaunchAgents/com.authproxy.claude.plist` | macOS auth-proxy service |
+| `~/Library/LaunchAgents/com.cloudflared.tunnel.plist` | macOS Cloudflare tunnel service |
+| `~/.config/systemd/user/remotelab-auth-proxy.service` | Linux auth-proxy service |
+| `~/.config/systemd/user/remotelab-cloudflared.service` | Linux Cloudflare tunnel service |
 
 ## Troubleshooting
 
@@ -221,7 +244,7 @@ Navigate to your HTTPS URL after login. From the dashboard you can:
 
 **Tool shows "not installed" on the dashboard** — the service runs under launchd with a minimal PATH. Non-interactive login shells (`zsh -l`) source `~/.zprofile` and `~/.zshenv` but **not** `~/.zshrc`. If your tool is installed in a directory added to `PATH` only in `~/.zshrc` (e.g. `~/.local/bin` for `claude`), remotelab supplements the PATH with common locations automatically. If your tool is in a non-standard location, add it to `~/.zprofile` or `~/.zshenv` so it is visible to login shells, then restart with `remotelab restart`.
 
-**Tunnel unreachable** — check `cloudflared tunnel info <tunnel-name>` and `~/Library/Logs/cloudflared.error.log`
+**Tunnel unreachable** — check `cloudflared tunnel info <tunnel-name>` and the service logs (`~/Library/Logs/cloudflared.error.log` on macOS or `journalctl --user -u remotelab-cloudflared.service` on Linux)
 
 **Session opens but shows wrong directory** — verify the folder still exists; the script falls back to `$HOME` if the path is missing
 
@@ -236,7 +259,7 @@ See [INSTALL.md](INSTALL.md) for the full installation guide and [CONTRIBUTING.m
 
 ## Contributing
 
-Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Linux/systemd support is a particularly useful area where help is needed.
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Linux/systemd support now ships in `setup-linux.sh`, and distro-specific polish is especially helpful.
 
 ## License
 

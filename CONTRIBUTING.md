@@ -7,11 +7,11 @@ for local development and how to submit changes.
 
 ### Requirements
 
-- macOS (primary platform; Linux/systemd support is a welcome contribution)
+- macOS or Linux with `systemd --user`
 - [Homebrew](https://brew.sh)
 - Node.js 18+
-- `ttyd`, `cloudflared`, `dtach` (installed by `setup.sh` or manually via `brew install ttyd cloudflared dtach`)
-- Claude Code CLI: `npm install -g @anthropic-ai/claude-code`
+- `ttyd`, `cloudflared`, `dtach` (installed by `setup.sh` on macOS; `setup-linux.sh` can install them automatically on supported Linux distros)
+- Claude Code CLI and Codex CLI (installed automatically by `setup-linux.sh` when missing on supported Linux distros)
 
 ### First-time Setup
 
@@ -21,7 +21,8 @@ git clone https://github.com/YOUR_USERNAME/remotelab.git
 cd remotelab
 
 # Run the automated setup (will prompt for domain and credentials)
-./setup.sh
+./setup.sh        # macOS
+./setup-linux.sh  # Linux/systemd
 ```
 
 ## Architecture Overview
@@ -65,12 +66,35 @@ LISTEN_PORT=8081 TTYD_PORT=8082 node auth-proxy.mjs
 ### Testing the full stack
 
 ```bash
-./start.sh   # Start ttyd, auth-proxy, and cloudflared
-./stop.sh    # Stop all services
+./start.sh        # macOS LaunchAgents
+./stop.sh
+
+./start-linux.sh  # Linux systemd user services
+./stop-linux.sh
 
 # View live logs
 tail -f ~/Library/Logs/auth-proxy.log
 tail -f ~/Library/Logs/ttyd-claude.log
+```
+
+### Docker smoke test (Ubuntu 22.04)
+
+Use the reusable Docker smoke test to validate Linux `systemd --user` localhost setup end-to-end:
+
+```bash
+bash tests/docker/run-ubuntu22-localhost-smoke.sh
+```
+
+What it covers:
+- Starts a temporary Ubuntu 22.04 container with `systemd`
+- Runs `setup-linux.sh` in localhost mode
+- Verifies the login page and login flow
+- Creates a shell session and checks `/api/sessions`
+
+You can override the image when needed:
+
+```bash
+bash tests/docker/run-ubuntu22-localhost-smoke.sh <image>
 ```
 
 ### Reloading auth-proxy after code changes
@@ -78,6 +102,9 @@ tail -f ~/Library/Logs/ttyd-claude.log
 ```bash
 launchctl unload ~/Library/LaunchAgents/com.authproxy.claude.plist
 launchctl load  ~/Library/LaunchAgents/com.authproxy.claude.plist
+
+# Linux
+systemctl --user restart remotelab-auth-proxy.service
 ```
 
 ## Submitting Changes
@@ -96,10 +123,10 @@ launchctl load  ~/Library/LaunchAgents/com.authproxy.claude.plist
 
 ## Linux / systemd Support
 
-The current implementation uses macOS LaunchAgents. Contributions that add a
-`setup-linux.sh` with systemd unit files for the same three services would be very
-welcome. The core scripts (`auth-proxy.mjs`, `claude-ttyd-session`) are already
-portable — only the service management layer needs to change.
+Linux systemd user-service support now lives in `setup-linux.sh`,
+`start-linux.sh`, `stop-linux.sh`, and `templates/systemd/`. Follow the current
+service model: `auth-proxy` and `cloudflared` are managed by the init system,
+while ttyd is spawned per session by `auth-proxy`.
 
 ## Reporting Issues
 

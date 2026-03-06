@@ -5,10 +5,11 @@ Access Claude Code CLI from any browser on any device via HTTPS.
 ## Prerequisites
 
 ### Required
-- **macOS** (tested on macOS 11+; Linux/systemd support is a welcome contribution)
-- **Homebrew** — [brew.sh](https://brew.sh)
+- **macOS** (tested on macOS 11+)
+- **Linux** with `systemd --user`
+- **Homebrew** on macOS, or your Linux distro package manager
 - **Node.js 18+**
-- **Claude Code CLI** — `npm install -g @anthropic-ai/claude-code`
+- **Claude Code CLI / Codex CLI** — optional to preinstall; `setup-linux.sh` can install missing Linux dependencies automatically
 - **Claude authentication** — run `claude login` or add your API key to your shell profile:
   ```bash
   echo 'export ANTHROPIC_API_KEY="your-key-here"' >> ~/.zshrc
@@ -24,7 +25,7 @@ Access Claude Code CLI from any browser on any device via HTTPS.
 
 ## Quick Start
 
-### 1. Install Claude Code CLI
+### 1. Install your CLI tools
 
 ```bash
 npm install -g @anthropic-ai/claude-code
@@ -45,15 +46,20 @@ claude login
 
 ```bash
 cd /path/to/remotelab
+
+# macOS
 ./setup.sh
+
+# Linux
+./setup-linux.sh
 ```
 
 The script will:
-- Check for dependencies and install missing packages via Homebrew
+- Check for required dependencies and auto-install missing Linux packages/tools (`node`, `dtach`, `ttyd`, `claude`, `codex`, and `cloudflared` in tunnel mode)
 - Authenticate with Cloudflare (`cloudflared tunnel login`)
 - Create and configure a named tunnel
 - Generate a secure random password and create `~/.config/claude-web/auth.json`
-- Create LaunchAgent plists for auto-start on login
+- Create LaunchAgent plists on macOS or systemd user units on Linux
 - Start all services and verify they are running
 - Display your access URL and credentials
 
@@ -103,14 +109,25 @@ Once setup completes:
 ### Start / Stop Services
 
 ```bash
+# macOS
 ./start.sh
 ./stop.sh
+
+# Linux
+./start-linux.sh
+./stop-linux.sh
 ```
 
 ### Check Status
 
 ```bash
+# macOS
 launchctl list | grep -E 'ttyd|authproxy|cloudflared'
+
+# Linux
+systemctl --user status remotelab-auth-proxy.service
+systemctl --user status remotelab-cloudflared.service
+
 lsof -i :7681   # auth-proxy
 lsof -i :7682   # ttyd
 cloudflared tunnel info <tunnel-name>
@@ -119,29 +136,45 @@ cloudflared tunnel info <tunnel-name>
 ### View Logs
 
 ```bash
+# macOS
 tail -f ~/Library/Logs/auth-proxy.log
 tail -f ~/Library/Logs/auth-proxy.error.log
 tail -f ~/Library/Logs/ttyd-claude.log
 tail -f ~/Library/Logs/ttyd-claude.error.log
 tail -f ~/Library/Logs/cloudflared.log
+
+# Linux
+journalctl --user -u remotelab-auth-proxy.service -f
+journalctl --user -u remotelab-cloudflared.service -f
 ```
 
 ### Change Password
 
 ```bash
 node hash-password.mjs <username> <new-password>
-# Then reload auth-proxy:
+
+# macOS reload
 launchctl unload ~/Library/LaunchAgents/com.authproxy.claude.plist
 launchctl load  ~/Library/LaunchAgents/com.authproxy.claude.plist
+
+# Linux reload
+systemctl --user restart remotelab-auth-proxy.service
 ```
 
 ### Uninstall
 
 ```bash
+# macOS
 ./stop.sh
-rm ~/Library/LaunchAgents/com.ttyd.claude.plist
 rm ~/Library/LaunchAgents/com.authproxy.claude.plist
 rm ~/Library/LaunchAgents/com.cloudflared.tunnel.plist
+
+# Linux
+./stop-linux.sh
+rm ~/.config/systemd/user/remotelab-auth-proxy.service
+rm ~/.config/systemd/user/remotelab-cloudflared.service
+systemctl --user daemon-reload
+
 cloudflared tunnel delete <tunnel-name>
 rm -rf ~/.cloudflared
 rm -rf ~/.config/claude-web
@@ -163,7 +196,7 @@ rm -rf ~/.config/claude-web
 **Solution**:
 - Verify Claude CLI is installed: `which claude`
 - Verify authentication: `claude --version`
-- Restart services: `./stop.sh && ./start.sh`
+- Restart services: macOS `./stop.sh && ./start.sh`; Linux `./stop-linux.sh && ./start-linux.sh`
 
 ### Services Not Starting
 
@@ -173,6 +206,9 @@ tail -50 ~/Library/Logs/ttyd-claude.error.log
 
 launchctl unload ~/Library/LaunchAgents/com.authproxy.claude.plist
 launchctl load  ~/Library/LaunchAgents/com.authproxy.claude.plist
+
+# Linux alternative
+systemctl --user restart remotelab-auth-proxy.service
 ```
 
 ### Login Page Not Showing

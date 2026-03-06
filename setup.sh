@@ -213,6 +213,9 @@ fi
 # Step 4: Cloudflare setup (skipped in localhost mode)
 if [[ "$USE_CLOUDFLARE" == true ]]; then
     print_header "Step 4: Cloudflare Setup"
+    TUNNEL_NAME=""
+    TUNNEL_ID=""
+    TUNNEL_CREDENTIALS_FILE=""
 
     echo "You need to:"
     echo "1. Have a Cloudflare account (free plan works)"
@@ -250,18 +253,36 @@ if [[ "$USE_CLOUDFLARE" == true ]]; then
         print_success "Cloudflared authenticated"
     fi
 
-    # Create tunnel
-    print_info "Creating Cloudflare tunnel..."
-    TUNNEL_NAME="claude-code-$(date +%s)"
-    TUNNEL_OUTPUT=$(cloudflared tunnel create "$TUNNEL_NAME")
-    TUNNEL_ID=$(echo "$TUNNEL_OUTPUT" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1)
+    if [[ -f "$HOME/.cloudflared/config.yml" ]]; then
+        EXISTING_TUNNEL=$(awk -F': *' '$1=="tunnel"{print $2; exit}' "$HOME/.cloudflared/config.yml")
+        EXISTING_CREDENTIALS_FILE=$(awk -F': *' '$1=="credentials-file"{print $2; exit}' "$HOME/.cloudflared/config.yml")
 
-    if [[ -z "$TUNNEL_ID" ]]; then
-        print_error "Failed to create tunnel"
-        exit 1
+        if [[ -n "$EXISTING_TUNNEL" && -n "$EXISTING_CREDENTIALS_FILE" && -f "$EXISTING_CREDENTIALS_FILE" ]]; then
+            if cloudflared tunnel info "$EXISTING_TUNNEL" >/dev/null 2>&1; then
+                TUNNEL_NAME="$EXISTING_TUNNEL"
+                TUNNEL_CREDENTIALS_FILE="$EXISTING_CREDENTIALS_FILE"
+                TUNNEL_ID=$(basename "$TUNNEL_CREDENTIALS_FILE" .json)
+                print_success "Reusing existing tunnel: $TUNNEL_NAME (ID: $TUNNEL_ID)"
+            else
+                print_warning "Existing tunnel '$EXISTING_TUNNEL' from ~/.cloudflared/config.yml is not accessible; creating a new one"
+            fi
+        fi
     fi
 
-    print_success "Tunnel created: $TUNNEL_NAME (ID: $TUNNEL_ID)"
+    if [[ -z "$TUNNEL_NAME" || -z "$TUNNEL_ID" ]]; then
+        print_info "Creating Cloudflare tunnel..."
+        TUNNEL_NAME="claude-code-$(date +%s)"
+        TUNNEL_OUTPUT=$(cloudflared tunnel create "$TUNNEL_NAME")
+        TUNNEL_ID=$(echo "$TUNNEL_OUTPUT" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1)
+
+        if [[ -z "$TUNNEL_ID" ]]; then
+            print_error "Failed to create tunnel"
+            exit 1
+        fi
+
+        TUNNEL_CREDENTIALS_FILE="$HOME/.cloudflared/$TUNNEL_ID.json"
+        print_success "Tunnel created: $TUNNEL_NAME (ID: $TUNNEL_ID)"
+    fi
 
     # Route DNS (--overwrite-dns handles existing CNAME records on re-runs)
     print_info "Routing DNS..."
@@ -284,7 +305,7 @@ if [[ "$USE_CLOUDFLARE" == true ]]; then
     print_info "Creating cloudflared config..."
     cat > "$HOME/.cloudflared/config.yml" << EOF
 tunnel: $TUNNEL_NAME
-credentials-file: $HOME/.cloudflared/$TUNNEL_ID.json
+credentials-file: $TUNNEL_CREDENTIALS_FILE
 
 ingress:
   - hostname: $FULL_DOMAIN
@@ -304,15 +325,21 @@ SESSION_NAME="\${1:-claude-web}"
 WORK_DIR="\${2:-\$HOME}"
 TOOL_CMD="\${3:-claude}"
 
-# Source shell profile to get proper PATH and environment
-if [ -f "\$HOME/.zshrc" ]; then
-    source "\$HOME/.zshrc"
-elif [ -f "\$HOME/.bash_profile" ]; then
-    source "\$HOME/.bash_profile"
+# Source common shell profiles to get PATH and environment on macOS/Linux
+for profile in "\$HOME/.zshrc" "\$HOME/.bash_profile" "\$HOME/.bashrc" "\$HOME/.profile"; do
+    if [ -f "\$profile" ]; then
+        # shellcheck disable=SC1090
+        source "\$profile"
+    fi
+done
+
+# Map 'shell' to actual shell binary
+if [ "\$TOOL_CMD" = "shell" ]; then
+    TOOL_CMD="\${SHELL:-/bin/bash}"
 fi
 
-# Validate tool command (only alphanumeric, hyphens, underscores allowed)
-if ! echo "\$TOOL_CMD" | grep -qE '^[a-zA-Z0-9_-]+\$'; then
+# Validate tool command (only alphanumeric, hyphens, underscores, slashes, dots allowed)
+if ! echo "\$TOOL_CMD" | grep -qE '^[a-zA-Z0-9_/.-]+\$'; then
     echo "Error: Invalid tool command '\$TOOL_CMD'"
     exit 1
 fi
@@ -501,7 +528,7 @@ Tunnel ID: $TUNNEL_ID
 
 # Configuration Files:
 - Cloudflared config: ~/.cloudflared/config.yml
-- Cloudflared credentials: ~/.cloudflared/$TUNNEL_ID.json
+- Cloudflared credentials: $TUNNEL_CREDENTIALS_FILE
 - cloudflared service: ~/Library/LaunchAgents/com.cloudflared.tunnel.plist
 
 # Management:

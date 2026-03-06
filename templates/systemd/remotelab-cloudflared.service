@@ -1,0 +1,14 @@
+[Unit]
+Description=remotelab Cloudflare tunnel
+After=network-online.target remotelab-auth-proxy.service
+Wants=network-online.target remotelab-auth-proxy.service
+
+[Service]
+Type=simple
+WorkingDirectory={{USER_HOME}}
+ExecStart={{CLOUDFLARED_PATH}} tunnel --config {{CLOUDFLARE_CONFIG}} run
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target

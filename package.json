@@ -27,13 +27,16 @@
     "terminal",
     "proxy",
     "ssh",
-    "macos"
+    "macos",
+    "linux",
+    "systemd"
   ],
   "engines": {
     "node": ">=18.0.0"
   },
   "os": [
-    "darwin"
+    "darwin",
+    "linux"
   ],
   "bin": {
     "remotelab": "cli.js"
@@ -43,8 +46,11 @@
     "auth-proxy.mjs",
     "hash-password.mjs",
     "setup.sh",
+    "setup-linux.sh",
     "start.sh",
+    "start-linux.sh",
     "stop.sh",
+    "stop-linux.sh",
     "claude-ttyd-session",
     "lib/",
     "templates/",
@@ -54,11 +60,14 @@
   ],
   "scripts": {
     "start": "node auth-proxy.mjs",
-    "stop": "./stop.sh",
-    "setup": "./setup.sh",
+    "stop": "node cli.js stop",
+    "setup": "node cli.js setup",
+    "setup:linux": "./setup-linux.sh",
+    "start:linux": "./start-linux.sh",
+    "stop:linux": "./stop-linux.sh",
     "hash-password": "node hash-password.mjs",
     "test": "vitest run",
-    "prepublishOnly": "chmod +x cli.js setup.sh start.sh stop.sh claude-ttyd-session"
+    "prepublishOnly": "chmod +x cli.js setup.sh setup-linux.sh start.sh start-linux.sh stop.sh stop-linux.sh claude-ttyd-session"
   },
   "devDependencies": {
     "jsdom": "^28.1.0",
