@@ -1,0 +1,15 @@
+[Unit]
+Description=remotelab auth proxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory={{USER_HOME}}
+ExecStart={{NODE_PATH}} {{SCRIPT_DIR}}/auth-proxy.mjs
+Restart=always
+RestartSec=2
+{{SECURE_COOKIES_LINE}}
+
+[Install]
+WantedBy=default.target

@@ -15,6 +15,19 @@ function scriptPath(name) {
   return path.join(__dirname, name);
 }
 
+function platformScript(base) {
+  if (process.platform === 'linux') {
+    return `${base}-linux.sh`;
+  }
+
+  if (process.platform === 'darwin') {
+    return `${base}.sh`;
+  }
+
+  console.error(`Unsupported platform: ${process.platform}`);
+  process.exit(1);
+}
+
 function runShell(script) {
   try {
     execFileSync('bash', [scriptPath(script)], { stdio: 'inherit' });
@@ -28,7 +41,7 @@ function printHelp() {
 
 Usage:
   remotelab setup                    Run interactive setup
-  remotelab start                    Start auth proxy + ttyd
+  remotelab start                    Start background services
   remotelab stop                     Stop all services
   remotelab server                   Run auth proxy in foreground
   remotelab hash-password <user> <pass>  Hash a password for config
@@ -38,15 +51,15 @@ Usage:
 
 switch (command) {
   case 'setup':
-    runShell('setup.sh');
+    runShell(platformScript('setup'));
     break;
 
   case 'start':
-    runShell('start.sh');
+    runShell(platformScript('start'));
     break;
 
   case 'stop':
-    runShell('stop.sh');
+    runShell(platformScript('stop'));
     break;
 
   case 'server':

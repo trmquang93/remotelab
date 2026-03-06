@@ -4,12 +4,13 @@ SESSION_NAME="${1:-claude-web}"
 WORK_DIR="${2:-$HOME}"
 TOOL_CMD="${3:-claude}"
 
-# Source shell profile to get proper PATH and environment
-if [ -f "$HOME/.zshrc" ]; then
-    source "$HOME/.zshrc"
-elif [ -f "$HOME/.bash_profile" ]; then
-    source "$HOME/.bash_profile"
-fi
+# Source common shell profiles to get PATH and environment on macOS/Linux
+for profile in "$HOME/.zshrc" "$HOME/.bash_profile" "$HOME/.bashrc" "$HOME/.profile"; do
+    if [ -f "$profile" ]; then
+        # shellcheck disable=SC1090
+        source "$profile"
+    fi
+done
 
 # Map 'shell' to actual shell binary
 if [ "$TOOL_CMD" = "shell" ]; then

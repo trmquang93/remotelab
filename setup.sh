@@ -304,15 +304,21 @@ SESSION_NAME="\${1:-claude-web}"
 WORK_DIR="\${2:-\$HOME}"
 TOOL_CMD="\${3:-claude}"
 
-# Source shell profile to get proper PATH and environment
-if [ -f "\$HOME/.zshrc" ]; then
-    source "\$HOME/.zshrc"
-elif [ -f "\$HOME/.bash_profile" ]; then
-    source "\$HOME/.bash_profile"
+# Source common shell profiles to get PATH and environment on macOS/Linux
+for profile in "\$HOME/.zshrc" "\$HOME/.bash_profile" "\$HOME/.bashrc" "\$HOME/.profile"; do
+    if [ -f "\$profile" ]; then
+        # shellcheck disable=SC1090
+        source "\$profile"
+    fi
+done
+
+# Map 'shell' to actual shell binary
+if [ "\$TOOL_CMD" = "shell" ]; then
+    TOOL_CMD="\${SHELL:-/bin/bash}"
 fi
 
-# Validate tool command (only alphanumeric, hyphens, underscores allowed)
-if ! echo "\$TOOL_CMD" | grep -qE '^[a-zA-Z0-9_-]+\$'; then
+# Validate tool command (only alphanumeric, hyphens, underscores, slashes, dots allowed)
+if ! echo "\$TOOL_CMD" | grep -qE '^[a-zA-Z0-9_/.-]+\$'; then
     echo "Error: Invalid tool command '\$TOOL_CMD'"
     exit 1
 fi
