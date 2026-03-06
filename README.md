@@ -83,7 +83,7 @@ Three services:
 ## Prerequisites
 
 - **macOS** or **Linux** with `systemd --user`
-- **Homebrew** on macOS, or your Linux distro package manager
+- **Homebrew** on macOS, or a supported Linux distro package manager/sudo environment
 - **Node.js 18+**
 - **At least one supported CLI tool** installed and authenticated — e.g. Claude Code (`npm install -g @anthropic-ai/claude-code && claude login`), GitHub Copilot, Cline, or any custom CLI tool
 - **A domain managed by Cloudflare** — a cheap domain ($1–12/year) on the free Cloudflare plan is sufficient
@@ -128,7 +128,7 @@ The setup script will:
 1. Prompt for your domain and subdomain
 2. Prompt for a login username (default: `claude`)
 3. Generate a secure random password
-4. Check platform dependencies
+4. Check platform dependencies and auto-install missing Linux tools (`node`, `dtach`, `ttyd`, `claude`, `codex`, and `cloudflared` in tunnel mode)
 5. Authenticate with Cloudflare and create a tunnel
 6. Configure DNS in Cloudflare
 7. Generate LaunchAgents on macOS or systemd user units on Linux

@@ -4,6 +4,9 @@ set -euo pipefail
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 SYSTEMD_TEMPLATE_DIR="$SCRIPT_DIR/templates/systemd"
 SYSTEMD_USER_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
+NODE_LTS_MAJOR="24"
+
+export PATH="$HOME/.local/bin:/snap/bin:$PATH"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -33,13 +36,28 @@ print_info() {
     echo -e "${BLUE}ℹ${NC} $1"
 }
 
-escape_systemd_value() {
-    printf '"%s"' "$(printf '%s' "$1" | sed 's/"/\\"/g')"
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+refresh_command_cache() {
+    hash -r 2>/dev/null || true
+}
+
+run_as_root() {
+    if [[ "$(id -u)" -eq 0 ]]; then
+        bash -lc "$1"
+    elif command_exists sudo; then
+        sudo bash -lc "$1"
+    else
+        print_error "This step requires root privileges. Please install sudo or rerun as root."
+        exit 1
+    fi
 }
 
 detect_package_manager() {
     for pm in apt-get dnf yum pacman zypper; do
-        if command -v "$pm" >/dev/null 2>&1; then
+        if command_exists "$pm"; then
             echo "$pm"
             return 0
         fi
@@ -47,37 +65,244 @@ detect_package_manager() {
     return 1
 }
 
+detect_node_arch() {
+    case "$(uname -m)" in
+        x86_64|amd64)
+            echo "x64"
+            ;;
+        aarch64|arm64)
+            echo "arm64"
+            ;;
+        armv7l)
+            echo "armv7l"
+            ;;
+        *)
+            print_error "Unsupported CPU architecture for automatic Node.js install: $(uname -m)"
+            exit 1
+            ;;
+    esac
+}
+
+ensure_installer_prerequisites() {
+    case "$PACKAGE_MANAGER" in
+        apt-get)
+            run_as_root "apt-get update && apt-get install -y ca-certificates curl gnupg xz-utils openssl"
+            ;;
+        dnf)
+            run_as_root "dnf install -y ca-certificates curl gnupg2 xz openssl"
+            ;;
+        yum)
+            run_as_root "yum install -y ca-certificates curl gnupg2 xz openssl"
+            ;;
+        pacman)
+            run_as_root "pacman -Sy --noconfirm ca-certificates curl gnupg xz openssl"
+            ;;
+        zypper)
+            run_as_root "zypper --non-interactive install ca-certificates curl gpg2 xz openssl"
+            ;;
+        *)
+            print_error "Unsupported package manager for bootstrapping installer prerequisites"
+            exit 1
+            ;;
+    esac
+}
+
+wait_for_command() {
+    local binary="$1"
+    local attempts="${2:-12}"
+    for _ in $(seq 1 "$attempts"); do
+        if command_exists "$binary"; then
+            return 0
+        fi
+        sleep 1
+    done
+    return 1
+}
+
+install_nodejs() {
+    if command_exists node && command_exists npm; then
+        return 0
+    fi
+
+    print_info "Installing Node.js ${NODE_LTS_MAJOR}.x LTS from nodejs.org..."
+    ensure_installer_prerequisites
+
+    local node_arch base_url filename tmpfile
+    node_arch="$(detect_node_arch)"
+    base_url="https://nodejs.org/dist/latest-v${NODE_LTS_MAJOR}.x"
+    filename="$(curl -fsSL "$base_url/SHASUMS256.txt" | awk '/linux-.*\.tar\.xz$/ {print $2}' | grep "linux-${node_arch}.tar.xz" | head -1)"
+
+    if [[ -z "$filename" ]]; then
+        print_error "Failed to resolve a Node.js tarball for architecture ${node_arch}"
+        exit 1
+    fi
+
+    tmpfile="/tmp/${filename}"
+    curl -fsSL "$base_url/$filename" -o "$tmpfile"
+    run_as_root "tar -xJf '$tmpfile' -C /usr/local --strip-components=1"
+    rm -f "$tmpfile"
+    refresh_command_cache
+
+    if ! (command_exists node && command_exists npm); then
+        print_error "Node.js install completed but node/npm are still unavailable"
+        exit 1
+    fi
+}
+
+install_dtach() {
+    if command_exists dtach; then
+        return 0
+    fi
+
+    print_info "Installing dtach from the system package manager..."
+    case "$PACKAGE_MANAGER" in
+        apt-get)
+            run_as_root "apt-get update && apt-get install -y dtach"
+            ;;
+        dnf)
+            run_as_root "dnf install -y dtach"
+            ;;
+        yum)
+            run_as_root "yum install -y dtach"
+            ;;
+        pacman)
+            run_as_root "pacman -Sy --noconfirm dtach"
+            ;;
+        zypper)
+            run_as_root "zypper --non-interactive install dtach"
+            ;;
+        *)
+            print_error "Automatic dtach install is unsupported on this Linux distribution"
+            exit 1
+            ;;
+    esac
+    refresh_command_cache
+}
+
+install_ttyd() {
+    if command_exists ttyd; then
+        return 0
+    fi
+
+    print_info "Installing ttyd from the official snap package..."
+    case "$PACKAGE_MANAGER" in
+        apt-get)
+            run_as_root "apt-get update && apt-get install -y snapd"
+            ;;
+        dnf)
+            run_as_root "dnf install -y snapd"
+            ;;
+        yum)
+            run_as_root "yum install -y snapd"
+            ;;
+        pacman)
+            run_as_root "pacman -Sy --noconfirm snapd"
+            ;;
+        zypper)
+            run_as_root "zypper --non-interactive install snapd"
+            ;;
+        *)
+            print_error "Automatic ttyd install is unsupported on this Linux distribution"
+            exit 1
+            ;;
+    esac
+
+    run_as_root "systemctl enable --now snapd.socket"
+    run_as_root "ln -sf /var/lib/snapd/snap /snap"
+    run_as_root "snap install ttyd --classic"
+    refresh_command_cache
+    wait_for_command ttyd 20 || {
+        print_error "ttyd install completed but the ttyd command is still unavailable"
+        exit 1
+    }
+}
+
+install_claude() {
+    if command_exists claude; then
+        return 0
+    fi
+
+    print_info "Installing Claude Code using Anthropic's Linux installer..."
+    ensure_installer_prerequisites
+    bash -lc 'curl -fsSL https://claude.ai/install.sh | bash'
+    refresh_command_cache
+    wait_for_command claude 20 || {
+        print_error "Claude Code install completed but the claude command is still unavailable"
+        exit 1
+    }
+}
+
+install_codex() {
+    if command_exists codex; then
+        return 0
+    fi
+
+    print_info "Installing OpenAI Codex CLI with npm..."
+    mkdir -p "$HOME/.local/bin"
+    NPM_CONFIG_PREFIX="$HOME/.local" npm install -g @openai/codex
+    refresh_command_cache
+    wait_for_command codex 20 || {
+        print_error "Codex install completed but the codex command is still unavailable"
+        exit 1
+    }
+}
+
+install_cloudflared() {
+    if command_exists cloudflared; then
+        return 0
+    fi
+
+    print_info "Installing cloudflared from Cloudflare's Linux packages..."
+    ensure_installer_prerequisites
+
+    case "$PACKAGE_MANAGER" in
+        apt-get)
+            run_as_root "mkdir -p --mode=0755 /usr/share/keyrings"
+            run_as_root "curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | gpg --dearmor --yes -o /usr/share/keyrings/cloudflare-main.gpg"
+            run_as_root "echo 'deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main' > /etc/apt/sources.list.d/cloudflared.list"
+            run_as_root "apt-get update && apt-get install -y cloudflared"
+            ;;
+        dnf)
+            run_as_root "curl -fsSL https://pkg.cloudflare.com/cloudflared-ascii.repo -o /etc/yum.repos.d/cloudflared.repo"
+            run_as_root "dnf install -y cloudflared"
+            ;;
+        yum)
+            run_as_root "curl -fsSL https://pkg.cloudflare.com/cloudflared-ascii.repo -o /etc/yum.repos.d/cloudflared.repo"
+            run_as_root "yum install -y cloudflared"
+            ;;
+        pacman)
+            run_as_root "pacman -Sy --noconfirm cloudflared"
+            ;;
+        *)
+            print_error "Automatic cloudflared install is unsupported on this Linux distribution"
+            exit 1
+            ;;
+    esac
+    refresh_command_cache
+}
+
 print_linux_install_help() {
     local use_cloudflare="$1"
     local package_manager="${2:-}"
 
     echo ""
-    echo "Install the missing Linux packages, then rerun ./setup-linux.sh"
-    echo "Claude CLI: npm install -g @anthropic-ai/claude-code"
+    echo "Automatic installation is built in for Node.js, dtach, ttyd, Claude Code, Codex, and cloudflared."
+    echo "If an install still fails, verify your Linux distribution has sudo/root access and outbound internet access."
 
     case "$package_manager" in
         apt-get)
-            echo "Common packages: sudo apt-get install -y nodejs npm dtach ttyd"
+            echo "Ubuntu/Debian note: the script uses nodejs.org, snap (ttyd), Anthropic's installer, npm, and Cloudflare's package repository."
             ;;
-        dnf)
-            echo "Common packages: sudo dnf install -y nodejs npm dtach ttyd"
-            ;;
-        yum)
-            echo "Common packages: sudo yum install -y nodejs npm dtach ttyd"
-            ;;
-        pacman)
-            echo "Common packages: sudo pacman -S nodejs npm dtach ttyd"
-            ;;
-        zypper)
-            echo "Common packages: sudo zypper install -y nodejs npm dtach ttyd"
+        dnf|yum|pacman|zypper)
+            echo "This distro uses a best-effort mix of official installers and package managers."
             ;;
         *)
-            echo "Install manually: node, npm, dtach, ttyd"
+            echo "Install manually: node, dtach, ttyd, claude, codex, and optionally cloudflared."
             ;;
     esac
 
     if [[ "$use_cloudflare" == true ]]; then
-        echo "cloudflared: install the Cloudflare Tunnel client for your distro, then confirm 'cloudflared --version' works"
+        echo "Cloudflare Tunnel mode also requires successful cloudflared login and tunnel creation."
     fi
 }
 
@@ -133,6 +358,17 @@ fi
 if ! command -v systemctl >/dev/null 2>&1; then
     print_error "systemctl not found — this setup currently supports Linux distributions with systemd user services"
     exit 1
+fi
+
+PACKAGE_MANAGER=$(detect_package_manager || true)
+if [[ -z "$PACKAGE_MANAGER" ]]; then
+    print_error "No supported package manager detected (apt-get, dnf, yum, pacman, zypper)"
+    exit 1
+fi
+
+if ! command_exists openssl; then
+    print_info "openssl not found; installing installer prerequisites first..."
+    ensure_installer_prerequisites
 fi
 
 print_header "Claude Code Remote Access Setup (Linux/systemd)"
@@ -201,64 +437,71 @@ echo ""
 print_warning "Save this password now! It will NOT be stored in the credentials file."
 read -r -p "Press Enter to continue once you have saved it..."
 
+print_header "Step 2: Checking and Installing Dependencies"
+
+MISSING_DEPS=()
+
+if ! command_exists node; then
+    MISSING_DEPS+=("node")
+fi
+if ! command_exists npm; then
+    MISSING_DEPS+=("npm")
+fi
+if ! command_exists dtach; then
+    MISSING_DEPS+=("dtach")
+fi
+if ! command_exists ttyd; then
+    MISSING_DEPS+=("ttyd")
+fi
+if ! command_exists claude; then
+    MISSING_DEPS+=("claude")
+fi
+if ! command_exists codex; then
+    MISSING_DEPS+=("codex")
+fi
+if [[ "$USE_CLOUDFLARE" == true ]] && ! command_exists cloudflared; then
+    MISSING_DEPS+=("cloudflared")
+fi
+
+if [[ ${#MISSING_DEPS[@]} -gt 0 ]]; then
+    print_info "Missing dependencies detected: ${MISSING_DEPS[*]}"
+    install_nodejs
+    install_dtach
+    install_ttyd
+    install_claude
+    install_codex
+    if [[ "$USE_CLOUDFLARE" == true ]]; then
+        install_cloudflared
+    fi
+else
+    print_success "All required dependencies are already installed"
+fi
+
+refresh_command_cache
+
+NODE_PATH="$(command -v node)"
+print_success "Node.js installed at: $NODE_PATH"
+print_success "dtach installed at: $(command -v dtach)"
+print_success "ttyd installed at: $(command -v ttyd)"
+print_success "Claude Code installed at: $(command -v claude)"
+print_success "Codex installed at: $(command -v codex)"
+if [[ "$USE_CLOUDFLARE" == true ]]; then
+    CLOUDFLARED_PATH="$(command -v cloudflared)"
+    print_success "cloudflared installed at: $CLOUDFLARED_PATH"
+fi
+
 print_info "Generating authentication hash..."
 node "$SCRIPT_DIR/hash-password.mjs" "$WEB_USERNAME" "$WEB_PASSWORD"
 print_success "Authentication configured"
 
-print_header "Step 2: Checking Dependencies"
-
-PACKAGE_MANAGER=$(detect_package_manager || true)
-MISSING_DEPS=()
-
-if ! command -v claude >/dev/null 2>&1; then
-    print_error "Claude CLI not found"
-    MISSING_DEPS+=("claude")
-else
-    print_success "Claude CLI installed at: $(command -v claude)"
-fi
-
-if ! command -v node >/dev/null 2>&1; then
-    print_error "Node.js not found"
-    MISSING_DEPS+=("node")
-else
-    NODE_PATH=$(command -v node)
-    print_success "Node.js installed at: $NODE_PATH"
-fi
-
-if ! command -v dtach >/dev/null 2>&1; then
-    print_error "dtach not found"
-    MISSING_DEPS+=("dtach")
-else
-    print_success "dtach installed"
-fi
-
-if ! command -v ttyd >/dev/null 2>&1; then
-    print_error "ttyd not found"
-    MISSING_DEPS+=("ttyd")
-else
-    print_success "ttyd installed"
-fi
-
-if [[ "$USE_CLOUDFLARE" == true ]]; then
-    if ! command -v cloudflared >/dev/null 2>&1; then
-        print_error "cloudflared not found"
-        MISSING_DEPS+=("cloudflared")
-    else
-        CLOUDFLARED_PATH=$(command -v cloudflared)
-        print_success "cloudflared installed at: $CLOUDFLARED_PATH"
-    fi
-fi
-
 if [[ -z "${ANTHROPIC_API_KEY:-}" ]]; then
     print_warning "ANTHROPIC_API_KEY not set in environment"
-    echo ""
-    print_info "Make sure to export ANTHROPIC_API_KEY in ~/.zshrc, ~/.bashrc, or ~/.profile"
+    print_info "Claude Code may prompt you to run 'claude login' or export ANTHROPIC_API_KEY later"
 fi
 
-if [[ ${#MISSING_DEPS[@]} -gt 0 ]]; then
-    print_error "Missing dependencies: ${MISSING_DEPS[*]}"
-    print_linux_install_help "$USE_CLOUDFLARE" "$PACKAGE_MANAGER"
-    exit 1
+if [[ -z "${OPENAI_API_KEY:-}" ]]; then
+    print_warning "OPENAI_API_KEY not set in environment"
+    print_info "Codex may prompt you to run 'codex login' or export OPENAI_API_KEY later"
 fi
 
 print_header "Step 3: Cloudflare Setup"

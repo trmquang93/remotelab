@@ -9,7 +9,7 @@ Access Claude Code CLI from any browser on any device via HTTPS.
 - **Linux** with `systemd --user`
 - **Homebrew** on macOS, or your Linux distro package manager
 - **Node.js 18+**
-- **Claude Code CLI** — `npm install -g @anthropic-ai/claude-code`
+- **Claude Code CLI / Codex CLI** — optional to preinstall; `setup-linux.sh` can install missing Linux dependencies automatically
 - **Claude authentication** — run `claude login` or add your API key to your shell profile:
   ```bash
   echo 'export ANTHROPIC_API_KEY="your-key-here"' >> ~/.zshrc
@@ -25,7 +25,7 @@ Access Claude Code CLI from any browser on any device via HTTPS.
 
 ## Quick Start
 
-### 1. Install Claude Code CLI
+### 1. Install your CLI tools
 
 ```bash
 npm install -g @anthropic-ai/claude-code
@@ -55,7 +55,7 @@ cd /path/to/remotelab
 ```
 
 The script will:
-- Check for required dependencies
+- Check for required dependencies and auto-install missing Linux packages/tools (`node`, `dtach`, `ttyd`, `claude`, `codex`, and `cloudflared` in tunnel mode)
 - Authenticate with Cloudflare (`cloudflared tunnel login`)
 - Create and configure a named tunnel
 - Generate a secure random password and create `~/.config/claude-web/auth.json`

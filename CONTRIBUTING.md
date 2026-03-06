@@ -10,8 +10,8 @@ for local development and how to submit changes.
 - macOS or Linux with `systemd --user`
 - [Homebrew](https://brew.sh)
 - Node.js 18+
-- `ttyd`, `cloudflared`, `dtach` (installed by `setup.sh` on macOS when available via Homebrew, or manually on Linux)
-- Claude Code CLI: `npm install -g @anthropic-ai/claude-code`
+- `ttyd`, `cloudflared`, `dtach` (installed by `setup.sh` on macOS; `setup-linux.sh` can install them automatically on supported Linux distros)
+- Claude Code CLI and Codex CLI (installed automatically by `setup-linux.sh` when missing on supported Linux distros)
 
 ### First-time Setup
 
