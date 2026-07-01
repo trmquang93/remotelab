@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+<script nonce="{{NONCE}}">(function(){var s=localStorage.getItem('remotelab_theme');var d=window.matchMedia('(prefers-color-scheme: dark)').matches;var t=s||(d?'dark':'light');document.documentElement.setAttribute('data-theme',t);})();</script>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -746,6 +747,72 @@
         align-items: stretch;
       }
     }
+
+    /* ── Light Theme ── */
+    html[data-theme="light"] {
+      --terminal-green: #1a5f1a;
+      --terminal-cyan: #1a5f8a;
+      --terminal-amber: #8a5a00;
+      --terminal-red: #c0392b;
+      --bg-black: #ffffff;
+      --bg-dark: #f5f5f5;
+      --bg-darker: #ebebeb;
+      --glow: none;
+    }
+
+    /* Suppress scanline/flicker effects */
+    html[data-theme="light"] body::before,
+    html[data-theme="light"] body::after { display: none; }
+    html[data-theme="light"] body { animation: none; }
+    html[data-theme="light"] .header,
+    html[data-theme="light"] .container {
+      animation: none;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+    html[data-theme="light"] h1 { text-shadow: none; }
+
+    html[data-theme="light"] .folder-card:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    }
+    html[data-theme="light"] .btn-primary:hover {
+      box-shadow: 0 2px 8px rgba(26, 95, 138, 0.3);
+    }
+    html[data-theme="light"] .btn-danger:hover {
+      box-shadow: 0 2px 8px rgba(192, 57, 43, 0.3);
+    }
+    html[data-theme="light"] .status-active {
+      box-shadow: 0 0 6px #1a5f1a;
+    }
+
+    /* No-JS fallback */
+    @media (prefers-color-scheme: light) {
+      html:not([data-theme]) {
+        --terminal-green: #1a5f1a;
+        --terminal-cyan: #1a5f8a;
+        --terminal-amber: #8a5a00;
+        --terminal-red: #c0392b;
+        --bg-black: #ffffff;
+        --bg-dark: #f5f5f5;
+        --bg-darker: #ebebeb;
+        --glow: none;
+      }
+    }
+
+    .theme-toggle-btn {
+      padding: 6px 10px;
+      background: var(--bg-black);
+      color: var(--terminal-green);
+      border: 1px solid var(--terminal-green);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      line-height: 1;
+    }
+    .theme-toggle-btn:hover {
+      background: var(--terminal-green);
+      color: var(--bg-black);
+    }
   </style>
 </head>
 <body>
@@ -755,6 +822,7 @@
         <span>AI Code Sessions // Session Manager</span>
         <div class="header-actions">
           <span id="folder-count" style="opacity: 0.7; font-size: 12px;">0 folders</span>
+          <button id="theme-toggle-btn" class="theme-toggle-btn" title="Switch to light theme">&#9790;</button>
           <a href="/logout" class="logout-btn">Logout</a>
         </div>
       </div>
@@ -1289,6 +1357,43 @@
     // Load folders and tools on page load
     loadFolders();
     loadTools();
+
+    (function() {
+      var btn = document.getElementById('theme-toggle-btn');
+      if (!btn) return;
+
+      function applyTheme(theme) {
+        if (theme === 'light') {
+          document.documentElement.setAttribute('data-theme', 'light');
+          btn.innerHTML = '&#9728;';
+          btn.title = 'Switch to dark theme';
+        } else {
+          document.documentElement.setAttribute('data-theme', 'dark');
+          btn.innerHTML = '&#9790;';
+          btn.title = 'Switch to light theme';
+        }
+      }
+
+      function getCurrentTheme() {
+        var stored = localStorage.getItem('remotelab_theme');
+        if (stored) return stored;
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+
+      applyTheme(getCurrentTheme());
+
+      btn.addEventListener('click', function() {
+        var next = getCurrentTheme() === 'light' ? 'dark' : 'light';
+        localStorage.setItem('remotelab_theme', next);
+        applyTheme(next);
+      });
+
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+        if (!localStorage.getItem('remotelab_theme')) {
+          applyTheme(e.matches ? 'dark' : 'light');
+        }
+      });
+    })();
   </script>
 </body>
 </html>

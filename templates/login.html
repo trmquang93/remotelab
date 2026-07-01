@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+<script nonce="{{NONCE}}">(function(){var s=localStorage.getItem('remotelab_theme');var d=window.matchMedia('(prefers-color-scheme: dark)').matches;var t=s||(d?'dark':'light');document.documentElement.setAttribute('data-theme',t);})();</script>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -341,6 +342,45 @@
       }
       .ascii-border {
         padding: 16px;
+      }
+    }
+
+    /* ── Light Theme ── */
+    html[data-theme="light"] {
+      --terminal-green: #1a5f1a;
+      --terminal-cyan: #1a5f8a;
+      --terminal-amber: #8a5a00;
+      --terminal-red: #c0392b;
+      --bg-black: #ffffff;
+      --bg-dark: #f5f5f5;
+      --glow: none;
+    }
+
+    /* Suppress scanline/flicker effects */
+    html[data-theme="light"] body::before,
+    html[data-theme="light"] body::after { display: none; }
+    html[data-theme="light"] body { animation: none; }
+    html[data-theme="light"] h1 { text-shadow: none; }
+
+    html[data-theme="light"] .error {
+      background: rgba(192, 57, 43, 0.08);
+      animation: none;
+    }
+    html[data-theme="light"] input { box-shadow: none; }
+    html[data-theme="light"] input:focus {
+      box-shadow: 0 0 0 2px rgba(26, 95, 138, 0.2);
+    }
+
+    /* No-JS fallback */
+    @media (prefers-color-scheme: light) {
+      html:not([data-theme]) {
+        --terminal-green: #1a5f1a;
+        --terminal-cyan: #1a5f8a;
+        --terminal-amber: #8a5a00;
+        --terminal-red: #c0392b;
+        --bg-black: #ffffff;
+        --bg-dark: #f5f5f5;
+        --glow: none;
       }
     }
   </style>

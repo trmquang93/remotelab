@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+<script nonce="{{NONCE}}">(function(){var s=localStorage.getItem('remotelab_theme');var d=window.matchMedia('(prefers-color-scheme: dark)').matches;var t=s||(d?'dark':'light');document.documentElement.setAttribute('data-theme',t);})();</script>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=overlays-content">
@@ -757,6 +758,81 @@
       }
     }
 
+    /* ── Light Theme ── */
+    html[data-theme="light"] {
+      --terminal-green: #1a5f1a;
+      --terminal-cyan: #1a5f8a;
+      --terminal-amber: #8a5a00;
+      --terminal-red: #c0392b;
+      --bg-black: #ffffff;
+      --bg-dark: #f5f5f5;
+      --bg-darker: #ebebeb;
+      --glow: none;
+    }
+
+    /* Suppress scanline/flicker effects */
+    html[data-theme="light"] body::before,
+    html[data-theme="light"] body::after { display: none; }
+    html[data-theme="light"] body { animation: none; }
+    html[data-theme="light"] .header,
+    html[data-theme="light"] .container {
+      animation: none;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+    html[data-theme="light"] h1 { text-shadow: none; }
+
+    html[data-theme="light"] .tab-bar { border-bottom: 1px solid #d0d0d0; }
+    html[data-theme="light"] .tab { color: rgba(26, 95, 26, 0.6); }
+    html[data-theme="light"] .tab:hover { background: rgba(26, 95, 26, 0.04); color: #1a5f1a; }
+    html[data-theme="light"] .tab.active {
+      color: #1a5f1a;
+      border-bottom-color: #1a5f1a;
+      background: rgba(26, 95, 26, 0.06);
+    }
+    html[data-theme="light"] .line-addition { background: rgba(26, 95, 26, 0.1); }
+    html[data-theme="light"] .line-deletion { background: rgba(192, 57, 43, 0.1); }
+    html[data-theme="light"] .line-number { color: rgba(26, 95, 26, 0.5); }
+    html[data-theme="light"] .hunk { border-top: 1px solid #d0d0d0; }
+    html[data-theme="light"] .hunk-header {
+      background: rgba(26, 95, 138, 0.06);
+      border-bottom: 1px solid rgba(26, 95, 138, 0.15);
+    }
+    html[data-theme="light"] .mobile-keyboard-toolbar {
+      background: #f0f0f0;
+      border-top: 1px solid #d0d0d0;
+    }
+    html[data-theme="light"] .mobile-keyboard-toolbar button {
+      background: rgba(0, 0, 0, 0.05);
+      border: 1px solid rgba(26, 95, 26, 0.2);
+      color: #1a5f1a;
+    }
+    html[data-theme="light"] .autocomplete-item:hover,
+    html[data-theme="light"] .autocomplete-item.highlighted,
+    html[data-theme="light"] .browse-item:hover { background: rgba(26, 95, 26, 0.08); }
+    html[data-theme="light"] .new-tab-dropdown {
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    }
+    html[data-theme="light"] .img-preview-panel {
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    }
+    html[data-theme="light"] .scroll-bottom-btn {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    /* No-JS fallback */
+    @media (prefers-color-scheme: light) {
+      html:not([data-theme]) {
+        --terminal-green: #1a5f1a;
+        --terminal-cyan: #1a5f8a;
+        --terminal-amber: #8a5a00;
+        --terminal-red: #c0392b;
+        --bg-black: #ffffff;
+        --bg-dark: #f5f5f5;
+        --bg-darker: #ebebeb;
+        --glow: none;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -770,6 +846,7 @@
       <button id="upload-btn" class="toolbar-btn" title="Upload file to folder">Upload</button>
       <button id="code-btn" class="toolbar-btn" title="Open VS Code in browser">Code</button>
       <button id="img-preview-btn" class="toolbar-btn" title="Toggle image preview panel">Img</button>
+      <button id="theme-toggle-btn" class="toolbar-btn theme-toggle-btn" title="Switch to light theme">&#9790;</button>
     </div>
   </div>
 
@@ -1385,18 +1462,18 @@
         return;
       }
 
-      // New tab dropdown option
+    });
+
+    // Handle dropdown option clicks (dropdown lives in document.body, not #tab-bar)
+    document.getElementById('new-tab-dropdown').addEventListener('click', function(e) {
       var option = e.target.closest('.new-tab-option');
       if (option) {
-        var dropdown = document.getElementById('new-tab-dropdown');
-        dropdown.classList.remove('open');
-
+        this.classList.remove('open');
         if (option.dataset.isShell === 'true') {
           createNewTab(null, null, true);
         } else {
           createNewTab(option.dataset.toolId, option.dataset.toolName, false);
         }
-        return;
       }
     });
 
@@ -2517,6 +2594,43 @@
           dragging = false;
         });
       })();
+    })();
+
+    (function() {
+      var btn = document.getElementById('theme-toggle-btn');
+      if (!btn) return;
+
+      function applyTheme(theme) {
+        if (theme === 'light') {
+          document.documentElement.setAttribute('data-theme', 'light');
+          btn.innerHTML = '&#9728;';
+          btn.title = 'Switch to dark theme';
+        } else {
+          document.documentElement.setAttribute('data-theme', 'dark');
+          btn.innerHTML = '&#9790;';
+          btn.title = 'Switch to light theme';
+        }
+      }
+
+      function getCurrentTheme() {
+        var stored = localStorage.getItem('remotelab_theme');
+        if (stored) return stored;
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+
+      applyTheme(getCurrentTheme());
+
+      btn.addEventListener('click', function() {
+        var next = getCurrentTheme() === 'light' ? 'dark' : 'light';
+        localStorage.setItem('remotelab_theme', next);
+        applyTheme(next);
+      });
+
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+        if (!localStorage.getItem('remotelab_theme')) {
+          applyTheme(e.matches ? 'dark' : 'light');
+        }
+      });
     })();
   </script>
 </body>
